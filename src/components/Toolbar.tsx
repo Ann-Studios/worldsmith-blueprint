@@ -1,4 +1,4 @@
-import { StickyNote, Users, MapPin, BookOpen } from "lucide-react";
+import { StickyNote, Users, MapPin, BookOpen, Package } from "lucide-react";
 import { Button } from "./ui/button";
 import { CardType } from "./Canvas";
 
@@ -12,6 +12,7 @@ export const Toolbar = ({ onAddCard }: ToolbarProps) => {
     { type: "character" as CardType, icon: Users, label: "Character" },
     { type: "location" as CardType, icon: MapPin, label: "Location" },
     { type: "plot" as CardType, icon: BookOpen, label: "Plot" },
+    { type: "item" as CardType, icon: Package, label: "Item" },
   ];
 
   return (

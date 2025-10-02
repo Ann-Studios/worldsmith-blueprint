@@ -5,6 +5,7 @@ import { NoteCard } from "./NoteCard";
 import { CharacterCard } from "./CharacterCard";
 import { LocationCard } from "./LocationCard";
 import { PlotCard } from "./PlotCard";
+import { ItemCard } from "./ItemCard";
 
 interface CardProps {
   card: CanvasCard;
@@ -36,6 +37,8 @@ export const Card = ({ card, onUpdate, onDelete }: CardProps) => {
         return <LocationCard card={card} onUpdate={onUpdate} onDelete={onDelete} />;
       case "plot":
         return <PlotCard card={card} onUpdate={onUpdate} onDelete={onDelete} />;
+      case "item":
+        return <ItemCard card={card} onUpdate={onUpdate} onDelete={onDelete} />;
     }
   };
 

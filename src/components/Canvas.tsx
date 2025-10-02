@@ -4,7 +4,7 @@ import { Card } from "./cards/Card";
 import { Toolbar } from "./Toolbar";
 import { Sidebar } from "./Sidebar";
 
-export type CardType = "note" | "character" | "location" | "plot";
+export type CardType = "note" | "character" | "location" | "plot" | "item";
 
 export interface CanvasCard {
   id: string;
