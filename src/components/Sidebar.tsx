@@ -3,6 +3,7 @@ import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useRef } from "react";
+import worldsmithLogo from "@/assets/worldsmith-logo.png";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -24,11 +25,19 @@ export const Sidebar = ({ isOpen, onToggle, onClear, onExport, onImport }: Sideb
     >
       {isOpen && (
         <>
-          <div className="h-16 border-b flex items-center justify-between px-4">
-            <h2 className="font-semibold text-lg">Projects</h2>
-            <Button variant="ghost" size="icon" onClick={onToggle}>
-              <PanelLeftClose className="w-5 h-5" />
-            </Button>
+          <div className="border-b flex flex-col gap-3 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <img src={worldsmithLogo} alt="WorldSmith Logo" className="w-8 h-8" />
+                <h1 className="font-bold text-xl bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+                  WorldSmith
+                </h1>
+              </div>
+              <Button variant="ghost" size="icon" onClick={onToggle}>
+                <PanelLeftClose className="w-5 h-5" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Visual Story Planning</p>
           </div>
           
           <ScrollArea className="flex-1 px-3 py-4">
