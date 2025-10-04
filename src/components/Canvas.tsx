@@ -4,6 +4,7 @@ import { Card } from "./cards/Card";
 import { Toolbar } from "./Toolbar";
 import { Sidebar } from "./Sidebar";
 import { useToast } from "@/hooks/use-toast";
+import { ConnectionLine } from "./ConnectionLine";
 
 export type CardType = "note" | "character" | "location" | "plot" | "item";
 
@@ -16,25 +17,48 @@ export interface CanvasCard {
   title?: string;
 }
 
+export interface Connection {
+  id: string;
+  fromCardId: string;
+  toCardId: string;
+}
+
 export const Canvas = () => {
   const [cards, setCards] = useState<CanvasCard[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [connectionMode, setConnectionMode] = useState(false);
+  const [selectedCardForConnection, setSelectedCardForConnection] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { toast } = useToast();
 
-  // Load cards from localStorage on mount
+  // Load cards and connections from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem("worldbuilding-canvas");
-    if (saved) {
+    const savedCards = localStorage.getItem("worldbuilding-canvas");
+    const savedConnections = localStorage.getItem("worldbuilding-connections");
+    
+    if (savedCards) {
       try {
-        const parsed = JSON.parse(saved);
+        const parsed = JSON.parse(savedCards);
         setCards(parsed);
-        toast({
-          title: "Canvas loaded",
-          description: "Your previous work has been restored.",
-        });
       } catch (error) {
         console.error("Failed to load saved canvas:", error);
       }
+    }
+    
+    if (savedConnections) {
+      try {
+        const parsed = JSON.parse(savedConnections);
+        setConnections(parsed);
+      } catch (error) {
+        console.error("Failed to load saved connections:", error);
+      }
+    }
+    
+    if (savedCards || savedConnections) {
+      toast({
+        title: "Canvas loaded",
+        description: "Your previous work has been restored.",
+      });
     }
   }, []);
 
@@ -44,6 +68,13 @@ export const Canvas = () => {
       localStorage.setItem("worldbuilding-canvas", JSON.stringify(cards));
     }
   }, [cards]);
+
+  // Save connections to localStorage whenever they change
+  useEffect(() => {
+    if (connections.length > 0) {
+      localStorage.setItem("worldbuilding-connections", JSON.stringify(connections));
+    }
+  }, [connections]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -85,19 +116,62 @@ export const Canvas = () => {
 
   const deleteCard = (id: string) => {
     setCards((cards) => cards.filter((card) => card.id !== id));
+    // Also delete any connections to/from this card
+    setConnections((conns) =>
+      conns.filter((conn) => conn.fromCardId !== id && conn.toCardId !== id)
+    );
+  };
+
+  const handleCardClick = (cardId: string) => {
+    if (!connectionMode) return;
+
+    if (!selectedCardForConnection) {
+      setSelectedCardForConnection(cardId);
+      toast({
+        title: "First card selected",
+        description: "Click another card to create a connection.",
+      });
+    } else if (selectedCardForConnection === cardId) {
+      setSelectedCardForConnection(null);
+      toast({
+        title: "Selection cleared",
+        description: "Click a card to start again.",
+      });
+    } else {
+      // Create connection
+      const newConnection: Connection = {
+        id: `conn-${Date.now()}`,
+        fromCardId: selectedCardForConnection,
+        toCardId: cardId,
+      };
+      setConnections([...connections, newConnection]);
+      setSelectedCardForConnection(null);
+      setConnectionMode(false);
+      toast({
+        title: "Connection created",
+        description: "Cards have been linked.",
+      });
+    }
+  };
+
+  const deleteConnection = (id: string) => {
+    setConnections((conns) => conns.filter((conn) => conn.id !== id));
   };
 
   const clearCanvas = () => {
     setCards([]);
+    setConnections([]);
     localStorage.removeItem("worldbuilding-canvas");
+    localStorage.removeItem("worldbuilding-connections");
     toast({
       title: "Canvas cleared",
-      description: "All cards have been removed.",
+      description: "All cards and connections have been removed.",
     });
   };
 
   const exportCanvas = () => {
-    const dataStr = JSON.stringify(cards, null, 2);
+    const data = { cards, connections };
+    const dataStr = JSON.stringify(data, null, 2);
     const dataBlob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement("a");
@@ -119,7 +193,13 @@ export const Canvas = () => {
     reader.onload = (e) => {
       try {
         const imported = JSON.parse(e.target?.result as string);
-        setCards(imported);
+        if (imported.cards) {
+          setCards(imported.cards);
+          setConnections(imported.connections || []);
+        } else {
+          // Legacy format (just cards)
+          setCards(imported);
+        }
         toast({
           title: "Canvas imported",
           description: "Your canvas has been loaded from file.",
@@ -146,7 +226,20 @@ export const Canvas = () => {
       />
       
       <div className="flex-1 flex flex-col">
-        <Toolbar onAddCard={addCard} />
+        <Toolbar 
+          onAddCard={addCard}
+          connectionMode={connectionMode}
+          onToggleConnectionMode={() => {
+            setConnectionMode(!connectionMode);
+            setSelectedCardForConnection(null);
+            if (!connectionMode) {
+              toast({
+                title: "Connection mode enabled",
+                description: "Click two cards to connect them.",
+              });
+            }
+          }}
+        />
         
         <div className="flex-1 relative overflow-auto">
           <div 
@@ -160,14 +253,43 @@ export const Canvas = () => {
               backgroundPosition: "0 0, 0 0",
             }}
           >
+            <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
+              <defs>
+                <marker
+                  id="arrowhead"
+                  markerWidth="10"
+                  markerHeight="10"
+                  refX="9"
+                  refY="3"
+                  orient="auto"
+                >
+                  <polygon points="0 0, 10 3, 0 6" fill="hsl(var(--ring))" className="opacity-40" />
+                </marker>
+              </defs>
+              <g className="pointer-events-auto">
+                {connections.map((connection) => (
+                  <ConnectionLine
+                    key={connection.id}
+                    connection={connection}
+                    cards={cards}
+                    onDelete={deleteConnection}
+                  />
+                ))}
+              </g>
+            </svg>
             <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
               {cards.map((card) => (
-                <Card
+                <div
                   key={card.id}
-                  card={card}
-                  onUpdate={updateCard}
-                  onDelete={deleteCard}
-                />
+                  onClick={() => handleCardClick(card.id)}
+                  className={selectedCardForConnection === card.id ? "ring-4 ring-ring rounded-lg" : ""}
+                >
+                  <Card
+                    card={card}
+                    onUpdate={updateCard}
+                    onDelete={deleteCard}
+                  />
+                </div>
               ))}
             </DndContext>
           </div>

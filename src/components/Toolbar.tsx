@@ -1,12 +1,14 @@
-import { StickyNote, Users, MapPin, BookOpen, Package } from "lucide-react";
+import { StickyNote, Users, MapPin, BookOpen, Package, Link } from "lucide-react";
 import { Button } from "./ui/button";
 import { CardType } from "./Canvas";
 
 interface ToolbarProps {
   onAddCard: (type: CardType) => void;
+  connectionMode: boolean;
+  onToggleConnectionMode: () => void;
 }
 
-export const Toolbar = ({ onAddCard }: ToolbarProps) => {
+export const Toolbar = ({ onAddCard, connectionMode, onToggleConnectionMode }: ToolbarProps) => {
   const tools = [
     { type: "note" as CardType, icon: StickyNote, label: "Note" },
     { type: "character" as CardType, icon: Users, label: "Character" },
@@ -30,6 +32,17 @@ export const Toolbar = ({ onAddCard }: ToolbarProps) => {
             <span>{tool.label}</span>
           </Button>
         ))}
+      </div>
+      <div className="ml-auto flex items-center gap-2">
+        <Button
+          variant={connectionMode ? "default" : "ghost"}
+          size="sm"
+          onClick={onToggleConnectionMode}
+          className="gap-2"
+        >
+          <Link className="w-4 h-4" />
+          <span>{connectionMode ? "Connecting..." : "Connect"}</span>
+        </Button>
       </div>
     </div>
   );
