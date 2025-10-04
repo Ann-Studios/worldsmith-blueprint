@@ -4,6 +4,7 @@ import { ScrollArea } from "./ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useRef } from "react";
 import worldsmithLogo from "@/assets/worldsmith-logo.png";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -28,14 +29,14 @@ export const Sidebar = ({ isOpen, onToggle, onClear, onExport, onImport }: Sideb
           <div className="border-b flex flex-col gap-3 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <img src={worldsmithLogo} alt="WorldSmith Logo" className="w-8 h-8" />
-                <h1 className="font-bold text-xl bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                  WorldSmith
-                </h1>
+                <img src={worldsmithLogo} alt="WorldSmith Logo" className="h-6" />
               </div>
-              <Button variant="ghost" size="icon" onClick={onToggle}>
-                <PanelLeftClose className="w-5 h-5" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <ThemeToggle />
+                <Button variant="ghost" size="icon" onClick={onToggle}>
+                  <PanelLeftClose className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
             <p className="text-xs text-muted-foreground">Visual Story Planning</p>
           </div>
