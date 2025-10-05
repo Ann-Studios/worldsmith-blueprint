@@ -36,6 +36,11 @@ if (!MONGODB_URI) {
     process.exit(1);
 }
 
+if (!process.env.JWT_SECRET) {
+    console.error('❌ JWT_SECRET environment variable is required');
+    process.exit(1);
+}
+
 // Updated MongoDB connection options for modern Mongoose
 const mongooseOptions = {
     dbName: 'worldsmith-database',
@@ -131,7 +136,6 @@ const CommentSchema = new mongoose.Schema({
     boardId: { type: String, required: true }
 });
 
-
 const UserSchema = new mongoose.Schema({
     _id: { type: String, required: true },
     name: { type: String, required: true },
@@ -148,7 +152,6 @@ const Card = mongoose.model('Card', CardSchema);
 const Connection = mongoose.model('Connection', ConnectionSchema);
 const Comment = mongoose.model('Comment', CommentSchema);
 const User = mongoose.model('User', UserSchema);
-
 
 // Auth middleware
 const authenticateToken = (req, res, next) => {
@@ -174,10 +177,25 @@ app.use((req, res, next) => {
     next();
 });
 
-// Public routes
+// ========== PUBLIC ROUTES ==========
+
+// Health check
+app.get('/health', (req, res) => {
+    const mongoStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    res.json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        mongodb: mongoStatus,
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
+
+// Register
 app.post('/auth/register', async (req, res) => {
     try {
         const { name, email, password } = req.body;
+
+        console.log('📝 Registration attempt:', { email, name });
 
         if (!name || !email || !password) {
             return res.status(400).json({ error: 'All fields are required' });
@@ -187,17 +205,21 @@ app.post('/auth/register', async (req, res) => {
             return res.status(400).json({ error: 'Password must be at least 6 characters' });
         }
 
-        const existingUser = await User.findOne({ email });
+        // Check if user already exists
+        const existingUser = await User.findOne({ email: email.toLowerCase() });
         if (existingUser) {
+            console.log('❌ User already exists:', email);
             return res.status(400).json({ error: 'User already exists with this email' });
         }
 
+        // Hash password
         const hashedPassword = await bcrypt.hash(password, 12);
 
+        // Create user
         const user = new User({
             _id: `user-${Date.now()}`,
             name,
-            email,
+            email: email.toLowerCase(),
             password: hashedPassword,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
@@ -205,20 +227,23 @@ app.post('/auth/register', async (req, res) => {
 
         await user.save();
 
+        // Generate token
         const token = jwt.sign(
             { userId: user._id, email: user.email },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
 
+        // Return user without password
         const userResponse = {
             _id: user._id,
             name: user.name,
             email: user.email,
-            avatar: user.avatar,
             role: user.role,
             createdAt: user.createdAt
         };
+
+        console.log('✅ User registered successfully:', user._id);
 
         res.status(201).json({
             user: userResponse,
@@ -230,38 +255,48 @@ app.post('/auth/register', async (req, res) => {
     }
 });
 
+// Login
 app.post('/auth/login', async (req, res) => {
     try {
         const { email, password } = req.body;
+
+        console.log('🔐 Login attempt:', { email });
 
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password are required' });
         }
 
-        const user = await User.findOne({ email });
+        // Find user
+        const user = await User.findOne({ email: email.toLowerCase() });
         if (!user) {
+            console.log('❌ User not found:', email);
             return res.status(400).json({ error: 'Invalid credentials' });
         }
 
+        // Check password
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
+            console.log('❌ Invalid password for user:', email);
             return res.status(400).json({ error: 'Invalid credentials' });
         }
 
+        // Generate token
         const token = jwt.sign(
             { userId: user._id, email: user.email },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
 
+        // Return user without password
         const userResponse = {
             _id: user._id,
             name: user.name,
             email: user.email,
-            avatar: user.avatar,
             role: user.role,
             createdAt: user.createdAt
         };
+
+        console.log('✅ User logged in successfully:', user._id);
 
         res.json({
             user: userResponse,
@@ -273,9 +308,46 @@ app.post('/auth/login', async (req, res) => {
     }
 });
 
+// ========== PROTECTED ROUTES ==========
+
+// Get current user
 app.get('/auth/me', authenticateToken, async (req, res) => {
     try {
         const user = await User.findOne({ _id: req.user.userId });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const userResponse = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            createdAt: user.createdAt
+        };
+
+        res.json(userResponse);
+    } catch (error) {
+        console.error('Get user error:', error);
+        res.status(500).json({ error: 'Failed to get user data' });
+    }
+});
+
+// Update user profile
+app.put('/auth/profile', authenticateToken, async (req, res) => {
+    try {
+        const { name, avatar } = req.body;
+        const updates = { updatedAt: new Date().toISOString() };
+
+        if (name) updates.name = name;
+        if (avatar) updates.avatar = avatar;
+
+        const user = await User.findOneAndUpdate(
+            { _id: req.user.userId },
+            updates,
+            { new: true, runValidators: true }
+        );
+
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -291,12 +363,12 @@ app.get('/auth/me', authenticateToken, async (req, res) => {
 
         res.json(userResponse);
     } catch (error) {
-        console.error('Get user error:', error);
-        res.status(500).json({ error: 'Failed to get user data' });
+        console.error('Update profile error:', error);
+        res.status(500).json({ error: 'Failed to update profile' });
     }
 });
 
-// Protected routes
+// Boards routes
 app.get('/boards', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
@@ -335,6 +407,8 @@ app.post('/boards', authenticateToken, async (req, res) => {
 
         const board = new Board(boardData);
         await board.save();
+
+        console.log(`✅ Board created: ${board._id} by user: ${req.user.userId}`);
         res.status(201).json(board);
     } catch (error) {
         console.error('Failed to create board:', error);
@@ -342,56 +416,31 @@ app.post('/boards', authenticateToken, async (req, res) => {
     }
 });
 
-// API Routes
-app.get('/boards', async (req, res) => {
-    try {
-        const { userId } = req.query;
-        if (!userId) {
-            return res.status(400).json({ error: 'User ID is required' });
-        }
-
-        const boards = await Board.find({
-            $or: [
-                { 'permissions.userId': userId },
-                { isPublic: true }
-            ]
-        }).sort({ updatedAt: -1 });
-
-        res.json(boards);
-    } catch (error) {
-        console.error('Failed to fetch boards:', error);
-        res.status(500).json({ error: 'Failed to fetch boards' });
-    }
-});
-
-app.post('/boards', async (req, res) => {
-    try {
-        const boardData = req.body;
-        if (!boardData._id || !boardData.name || !boardData.createdBy) {
-            return res.status(400).json({ error: 'Missing required fields' });
-        }
-
-        const board = new Board(boardData);
-        await board.save();
-        res.status(201).json(board);
-    } catch (error) {
-        console.error('Failed to create board:', error);
-        res.status(500).json({ error: 'Failed to create board' });
-    }
-});
-
-app.put('/boards/:id', async (req, res) => {
+app.put('/boards/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Check if user has permission to edit this board
+        const existingBoard = await Board.findOne({ _id: id });
+        if (!existingBoard) {
+            return res.status(404).json({ error: 'Board not found' });
+        }
+
+        const hasPermission = existingBoard.permissions.some(
+            perm => perm.userId === req.user.userId && ['owner', 'editor'].includes(perm.role)
+        ) || existingBoard.createdBy === req.user.userId;
+
+        if (!hasPermission) {
+            return res.status(403).json({ error: 'No permission to edit this board' });
+        }
+
         const board = await Board.findOneAndUpdate(
             { _id: id },
-            req.body,
+            { ...req.body, updatedAt: new Date().toISOString() },
             { new: true, runValidators: true }
         );
 
-        if (!board) {
-            return res.status(404).json({ error: 'Board not found' });
-        }
+        console.log(`✅ Board updated: ${id} by user: ${req.user.userId}`);
         res.json(board);
     } catch (error) {
         console.error('Failed to update board:', error);
@@ -399,9 +448,24 @@ app.put('/boards/:id', async (req, res) => {
     }
 });
 
-app.get('/boards/:id/data', async (req, res) => {
+app.get('/boards/:id/data', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Check if user has permission to access this board
+        const board = await Board.findOne({
+            _id: id,
+            $or: [
+                { 'permissions.userId': req.user.userId },
+                { createdBy: req.user.userId },
+                { isPublic: true }
+            ]
+        });
+
+        if (!board) {
+            return res.status(404).json({ error: 'Board not found or no access' });
+        }
+
         const [cards, connections, comments] = await Promise.all([
             Card.find({ boardId: id }),
             Connection.find({ boardId: id }),
@@ -419,15 +483,30 @@ app.get('/boards/:id/data', async (req, res) => {
     }
 });
 
-app.post('/boards/:id/clear', async (req, res) => {
+app.post('/boards/:id/clear', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Check if user has permission to clear this board
+        const board = await Board.findOne({
+            _id: id,
+            $or: [
+                { 'permissions.userId': req.user.userId, 'permissions.role': { $in: ['owner', 'editor'] } },
+                { createdBy: req.user.userId }
+            ]
+        });
+
+        if (!board) {
+            return res.status(403).json({ error: 'No permission to clear this board' });
+        }
+
         await Promise.all([
             Card.deleteMany({ boardId: id }),
             Connection.deleteMany({ boardId: id }),
             Comment.deleteMany({ boardId: id })
         ]);
 
+        console.log(`✅ Board cleared: ${id} by user: ${req.user.userId}`);
         res.json({ success: true, message: 'Board cleared successfully' });
     } catch (error) {
         console.error('Failed to clear board:', error);
@@ -435,11 +514,25 @@ app.post('/boards/:id/clear', async (req, res) => {
     }
 });
 
-app.post('/boards/:id/import', async (req, res) => {
+app.post('/boards/:id/import', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { cards, connections, comments } = req.body;
 
+        // Check if user has permission to import to this board
+        const board = await Board.findOne({
+            _id: id,
+            $or: [
+                { 'permissions.userId': req.user.userId, 'permissions.role': { $in: ['owner', 'editor'] } },
+                { createdBy: req.user.userId }
+            ]
+        });
+
+        if (!board) {
+            return res.status(403).json({ error: 'No permission to import to this board' });
+        }
+
+        // Clear existing data
         await Promise.all([
             Card.deleteMany({ boardId: id }),
             Connection.deleteMany({ boardId: id }),
@@ -451,7 +544,10 @@ app.post('/boards/:id/import', async (req, res) => {
         if (cards && cards.length > 0) {
             const cardsWithBoardId = cards.map(card => ({
                 ...card,
-                boardId: id
+                boardId: id,
+                createdBy: req.user.userId,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             }));
             insertPromises.push(Card.insertMany(cardsWithBoardId));
         }
@@ -459,7 +555,8 @@ app.post('/boards/:id/import', async (req, res) => {
         if (connections && connections.length > 0) {
             const connectionsWithBoardId = connections.map(conn => ({
                 ...conn,
-                boardId: id
+                boardId: id,
+                createdBy: req.user.userId
             }));
             insertPromises.push(Connection.insertMany(connectionsWithBoardId));
         }
@@ -467,12 +564,15 @@ app.post('/boards/:id/import', async (req, res) => {
         if (comments && comments.length > 0) {
             const commentsWithBoardId = comments.map(comment => ({
                 ...comment,
-                boardId: id
+                boardId: id,
+                createdBy: req.user.userId
             }));
             insertPromises.push(Comment.insertMany(commentsWithBoardId));
         }
 
         await Promise.all(insertPromises);
+
+        console.log(`✅ Data imported to board: ${id} by user: ${req.user.userId}`);
         res.json({ success: true, message: 'Data imported successfully' });
     } catch (error) {
         console.error('Failed to import board data:', error);
@@ -480,7 +580,7 @@ app.post('/boards/:id/import', async (req, res) => {
     }
 });
 
-// Cards Routes with Authentication
+// Cards routes
 app.post('/cards', authenticateToken, async (req, res) => {
     try {
         const cardData = req.body;
@@ -593,7 +693,7 @@ app.delete('/cards/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Connections Routes with Authentication
+// Connections routes
 app.post('/connections', authenticateToken, async (req, res) => {
     try {
         const connectionData = req.body;
@@ -722,7 +822,7 @@ app.delete('/connections/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Comments Routes with Authentication
+// Comments routes
 app.post('/comments', authenticateToken, async (req, res) => {
     try {
         const commentData = req.body;
@@ -886,188 +986,6 @@ app.get('/cards/:cardId/comments', authenticateToken, async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch comments' });
     }
 });
-// Authentication Routes
-
-// Register
-app.post('/auth/register', async (req, res) => {
-    try {
-        const { name, email, password } = req.body;
-
-        if (!name || !email || !password) {
-            return res.status(400).json({ error: 'All fields are required' });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters' });
-        }
-
-        // Check if user already exists
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ error: 'User already exists with this email' });
-        }
-
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 12);
-
-        // Create user
-        const user = new User({
-            _id: `user-${Date.now()}`,
-            name,
-            email,
-            password: hashedPassword,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        });
-
-        await user.save();
-
-        // Generate token
-        const token = jwt.sign(
-            { userId: user._id, email: user.email },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        // Return user without password
-        const userResponse = {
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            avatar: user.avatar,
-            role: user.role,
-            createdAt: user.createdAt
-        };
-
-        res.status(201).json({
-            user: userResponse,
-            token
-        });
-    } catch (error) {
-        console.error('Registration error:', error);
-        res.status(500).json({ error: 'Failed to create account' });
-    }
-});
-
-// Login
-app.post('/auth/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
-
-        if (!email || !password) {
-            return res.status(400).json({ error: 'Email and password are required' });
-        }
-
-        // Find user
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ error: 'Invalid credentials' });
-        }
-
-        // Check password
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) {
-            return res.status(400).json({ error: 'Invalid credentials' });
-        }
-
-        // Generate token
-        const token = jwt.sign(
-            { userId: user._id, email: user.email },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        // Return user without password
-        const userResponse = {
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            avatar: user.avatar,
-            role: user.role,
-            createdAt: user.createdAt
-        };
-
-        res.json({
-            user: userResponse,
-            token
-        });
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ error: 'Failed to login' });
-    }
-});
-
-// Get current user
-app.get('/auth/me', authenticateToken, async (req, res) => {
-    try {
-        const user = await User.findOne({ _id: req.user.userId });
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
-        // Return user without password
-        const userResponse = {
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            avatar: user.avatar,
-            role: user.role,
-            createdAt: user.createdAt
-        };
-
-        res.json(userResponse);
-    } catch (error) {
-        console.error('Get user error:', error);
-        res.status(500).json({ error: 'Failed to get user data' });
-    }
-});
-
-// Update user profile
-app.put('/auth/profile', authenticateToken, async (req, res) => {
-    try {
-        const { name, avatar } = req.body;
-        const updates = { updatedAt: new Date().toISOString() };
-
-        if (name) updates.name = name;
-        if (avatar) updates.avatar = avatar;
-
-        const user = await User.findOneAndUpdate(
-            { _id: req.user.userId },
-            updates,
-            { new: true, runValidators: true }
-        );
-
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
-        // Return user without password
-        const userResponse = {
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            avatar: user.avatar,
-            role: user.role,
-            createdAt: user.createdAt
-        };
-
-        res.json(userResponse);
-    } catch (error) {
-        console.error('Update profile error:', error);
-        res.status(500).json({ error: 'Failed to update profile' });
-    }
-});
-
-// Health check
-app.get('/health', (req, res) => {
-    const mongoStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-    res.json({
-        status: 'OK',
-        timestamp: new Date().toISOString(),
-        mongodb: mongoStatus,
-        environment: process.env.NODE_ENV || 'development'
-    });
-});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -1088,6 +1006,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📊 MongoDB: ${MONGODB_URI.includes('@') ? 'Connected to MongoDB Atlas' : MONGODB_URI}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔐 Authentication: Enabled`);
     console.log(`❤️  Health check: http://localhost:${PORT}/health`);
 });
 
