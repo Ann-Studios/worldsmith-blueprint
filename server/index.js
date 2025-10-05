@@ -39,7 +39,7 @@ if (!MONGODB_URI) {
 
 // Updated MongoDB connection options for modern Mongoose
 const mongooseOptions = {
-    // These are the only supported options in newer versions
+    dbName: 'worldsmith-database',
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
 };
