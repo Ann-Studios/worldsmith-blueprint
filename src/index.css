@@ -125,3 +125,28 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+.bg-grid {
+  background-image:
+    linear-gradient(hsl(var(--border)) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border)) 1px, transparent 1px);
+}
+
+.bg-24px {
+  background-size: 24px 24px;
+}
+
+.connection-layer {
+  z-index: 0;
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.bg-24px {
+  background-size: 24px 24px;
+}

@@ -1,73 +1,143 @@
+import React, { useState } from "react";
 import { CanvasCard } from "./Canvas";
 
-interface Connection {
+export interface Connection {
+  _id: string;
   id: string;
   fromCardId: string;
   toCardId: string;
+  label?: string;
+  type: "relationship" | "dependency" | "timeline" | "custom";
+  color?: string;
+  createdBy: string;
+  boardId: string;
 }
 
-interface ConnectionLineProps {
+export interface ConnectionLineProps {
   connection: Connection;
   cards: CanvasCard[];
-  onDelete: (id: string) => void;
+  onDelete: (connectionId: string) => void;
+  onUpdate: (connectionId: string, updates: Partial<Connection>) => void;
 }
 
-export const ConnectionLine = ({ connection, cards, onDelete }: ConnectionLineProps) => {
-  const fromCard = cards.find((c) => c.id === connection.fromCardId);
-  const toCard = cards.find((c) => c.id === connection.toCardId);
+export const ConnectionLine: React.FC<ConnectionLineProps> = ({
+  connection,
+  cards,
+  onDelete,
+  onUpdate,
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
 
-  if (!fromCard || !toCard) return null;
+  const fromCard = cards.find(card => card._id === connection.fromCardId);
+  const toCard = cards.find(card => card._id === connection.toCardId);
 
-  // Calculate center points of cards
-  const fromX = fromCard.x + 128; // Half of card width (256px / 2)
-  const fromY = fromCard.y + 80; // Approximate center of card
-  const toX = toCard.x + 128;
-  const toY = toCard.y + 80;
+  if (!fromCard || !toCard) {
+    return null;
+  }
 
-  // Calculate control points for curved line
+  const fromX = fromCard.x + 150; // Card width / 2
+  const fromY = fromCard.y + 50;  // Card height / 2
+  const toX = toCard.x + 150;
+  const toY = toCard.y + 50;
+
   const midX = (fromX + toX) / 2;
   const midY = (fromY + toY) / 2;
-  const dx = toX - fromX;
-  const dy = toY - fromY;
-  const offset = Math.min(Math.abs(dx), Math.abs(dy)) * 0.5;
-  
-  const path = `M ${fromX} ${fromY} Q ${midX} ${midY - offset} ${toX} ${toY}`;
 
-  // Calculate arrow position and rotation
-  const angle = Math.atan2(toY - fromY, toX - fromX) * (180 / Math.PI);
+  const getConnectionColor = () => {
+    if (connection.color) return connection.color;
+
+    switch (connection.type) {
+      case "relationship":
+        return "hsl(var(--primary))";
+      case "dependency":
+        return "hsl(var(--destructive))";
+      case "timeline":
+        return "hsl(var(--warning))";
+      case "custom":
+        return "hsl(var(--muted-foreground))";
+      default:
+        return "hsl(var(--ring))";
+    }
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isHovered) {
+      onDelete(connection._id);
+    }
+  };
 
   return (
-    <g className="connection-line group">
-      <path
-        d={path}
-        fill="none"
-        stroke="hsl(var(--ring))"
-        strokeWidth="2"
-        className="opacity-40 hover:opacity-80 transition-opacity cursor-pointer"
+    <g>
+      {/* Connection Line */}
+      <line
+        x1={fromX}
+        y1={fromY}
+        x2={toX}
+        y2={toY}
+        stroke={getConnectionColor()}
+        strokeWidth={isHovered ? 3 : 2}
+        strokeDasharray={connection.type === "dependency" ? "5,5" : "none"}
         markerEnd="url(#arrowhead)"
+        className="cursor-pointer transition-all duration-200"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={handleClick}
       />
-      <circle
-        cx={midX}
-        cy={midY}
-        r="8"
-        fill="hsl(var(--card))"
-        stroke="hsl(var(--ring))"
-        strokeWidth="2"
-        className="opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(connection.id);
-        }}
-      />
-      <text
-        x={midX}
-        y={midY + 1}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-xs fill-destructive"
-      >
-        ×
-      </text>
+
+      {/* Connection Label */}
+      {connection.label && (
+        <g>
+          <rect
+            x={midX - 40}
+            y={midY - 12}
+            width={80}
+            height={24}
+            fill="hsl(var(--background))"
+            stroke={getConnectionColor()}
+            strokeWidth={1}
+            rx={4}
+            className="cursor-pointer"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            onClick={handleClick}
+          />
+          <text
+            x={midX}
+            y={midY + 4}
+            textAnchor="middle"
+            fontSize={12}
+            fill={getConnectionColor()}
+            className="pointer-events-none select-none"
+          >
+            {connection.label}
+          </text>
+        </g>
+      )}
+
+      {/* Hover Delete Indicator */}
+      {isHovered && (
+        <g>
+          <circle
+            cx={midX}
+            cy={midY}
+            r={16}
+            fill="hsl(var(--destructive))"
+            className="cursor-pointer"
+            onClick={handleClick}
+          />
+          <text
+            x={midX}
+            y={midY + 5}
+            textAnchor="middle"
+            fontSize={12}
+            fill="hsl(var(--destructive-foreground))"
+            className="pointer-events-none font-bold select-none"
+          >
+            ×
+          </text>
+        </g>
+      )}
     </g>
   );
 };

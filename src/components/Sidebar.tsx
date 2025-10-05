@@ -1,4 +1,4 @@
-import { PanelLeftClose, PanelLeft, Trash2, Download, Upload } from "lucide-react";
+import { PanelLeftClose, PanelLeft, Trash2, Download, Upload, Save } from "lucide-react";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -12,9 +12,10 @@ interface SidebarProps {
   onClear: () => void;
   onExport: () => void;
   onImport: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onSave?: () => void;
 }
 
-export const Sidebar = ({ isOpen, onToggle, onClear, onExport, onImport }: SidebarProps) => {
+export const Sidebar = ({ isOpen, onToggle, onClear, onExport, onImport, onSave }: SidebarProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -40,7 +41,7 @@ export const Sidebar = ({ isOpen, onToggle, onClear, onExport, onImport }: Sideb
             </div>
             <p className="text-xs text-muted-foreground">Visual Story Planning</p>
           </div>
-          
+
           <ScrollArea className="flex-1 px-3 py-4">
             <div className="space-y-4">
               <div>
@@ -51,6 +52,17 @@ export const Sidebar = ({ isOpen, onToggle, onClear, onExport, onImport }: Sideb
               </div>
 
               <div className="space-y-2">
+                {onSave && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2"
+                    onClick={onSave}
+                  >
+                    <Save className="w-4 h-4" />
+                    Save Now
+                  </Button>
+                )}
+
                 <Button
                   variant="outline"
                   className="w-full justify-start gap-2"
@@ -74,6 +86,7 @@ export const Sidebar = ({ isOpen, onToggle, onClear, onExport, onImport }: Sideb
                   accept=".json"
                   onChange={onImport}
                   className="hidden"
+                  title="file"
                 />
 
                 <Button
@@ -89,7 +102,7 @@ export const Sidebar = ({ isOpen, onToggle, onClear, onExport, onImport }: Sideb
           </ScrollArea>
         </>
       )}
-      
+
       {!isOpen && (
         <Button
           variant="ghost"

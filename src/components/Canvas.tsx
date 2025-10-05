@@ -1,128 +1,366 @@
-import { useState, useEffect } from "react";
-import { DndContext, DragEndEvent, useSensor, useSensors, PointerSensor } from "@dnd-kit/core";
+import { useState, useEffect, useCallback } from "react";
+import { DndContext, DragEndEvent, useSensor, useSensors, PointerSensor, KeyboardSensor } from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Card } from "./cards/Card";
 import { Toolbar } from "./Toolbar";
 import { Sidebar } from "./Sidebar";
 import { useToast } from "@/hooks/use-toast";
 import { ConnectionLine } from "./ConnectionLine";
+import { BoardSelector } from "./BoardSelector";
+import { CollaborationUsers } from "./CollaborationUsers";
+import { CommentPanel } from "./CommentPanel";
+import { SearchPanel } from "./SearchPanel";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { api } from "@/config/api";
 
 export type CardType = "note" | "character" | "location" | "plot" | "item";
 
 export interface CanvasCard {
-  id: string;
+  _id: string;
   type: CardType;
   x: number;
   y: number;
   content: string;
   title?: string;
+  tags: string[];
+  attachments: Attachment[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+  boardId: string;
 }
 
 export interface Connection {
+  _id: string;
   id: string;
   fromCardId: string;
   toCardId: string;
+  label?: string;
+  type: "relationship" | "dependency" | "timeline" | "custom";
+  color?: string;
+  createdBy: string;
+  boardId: string;
+}
+
+export interface Comment {
+  _id: string;
+  cardId: string;
+  content: string;
+  createdBy: string;
+  createdAt: string;
+  mentions: string[];
+  resolved: boolean;
+  x?: number;
+  y?: number;
+  boardId: string;
+}
+
+export interface Attachment {
+  _id: string;
+  cardId: string;
+  filename: string;
+  url: string;
+  type: "image" | "file";
+  uploadedBy: string;
+  uploadedAt: string;
+  size: number;
+}
+
+export interface Permission {
+  userId: string;
+  role: "owner" | "editor" | "viewer";
+  grantedBy: string;
+  grantedAt: string;
+}
+
+export interface Board {
+  _id: string;
+  name: string;
+  description?: string;
+  parentFolderId?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  permissions: Permission[];
+  tags: string[];
+  templateId?: string;
+  isPublic: boolean;
 }
 
 export const Canvas = () => {
+  const [boards, setBoards] = useState<Board[]>([]);
+  const [currentBoard, setCurrentBoard] = useState<Board | null>(null);
   const [cards, setCards] = useState<CanvasCard[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [connectionMode, setConnectionMode] = useState(false);
   const [selectedCardForConnection, setSelectedCardForConnection] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [commentPanelOpen, setCommentPanelOpen] = useState(false);
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Load cards and connections from localStorage on mount
-  useEffect(() => {
-    const savedCards = localStorage.getItem("worldbuilding-canvas");
-    const savedConnections = localStorage.getItem("worldbuilding-connections");
-    
-    if (savedCards) {
-      try {
-        const parsed = JSON.parse(savedCards);
-        setCards(parsed);
-      } catch (error) {
-        console.error("Failed to load saved canvas:", error);
-      }
-    }
-    
-    if (savedConnections) {
-      try {
-        const parsed = JSON.parse(savedConnections);
-        setConnections(parsed);
-      } catch (error) {
-        console.error("Failed to load saved connections:", error);
-      }
-    }
-    
-    if (savedCards || savedConnections) {
+  // Mock current user - replace with actual authentication
+  const currentUser = {
+    id: "user-1",
+    _id: "user-1",
+    name: "Current User",
+    email: "user@example.com",
+    role: "owner" as const,
+    isOnline: true,
+  };
+
+  // Mock online users for collaboration
+  const onlineUsers = [{
+    id: "user-1",
+    _id: "user-1",
+    name: "Current User",
+    email: "user@example.com",
+    role: "owner" as const,
+    isOnline: true,
+  }];
+
+  // Handle save function
+  const handleSave = useCallback(async () => {
+    if (!currentBoard) return;
+
+    setIsLoading(true);
+    try {
+      const saveData = {
+        board: currentBoard,
+        cards,
+        connections,
+        comments,
+        updatedAt: new Date().toISOString()
+      };
+
+      await api.put(`/boards/${currentBoard._id}`, saveData);
+
       toast({
-        title: "Canvas loaded",
-        description: "Your previous work has been restored.",
+        title: "Saved to Cloud",
+        description: "Your work has been saved to the cloud.",
       });
-    }
-  }, []);
+    } catch (error) {
+      console.error('Failed to save to server:', error);
 
-  // Save cards to localStorage whenever they change
-  useEffect(() => {
-    if (cards.length > 0) {
-      localStorage.setItem("worldbuilding-canvas", JSON.stringify(cards));
-    }
-  }, [cards]);
+      // Fallback to localStorage
+      const boardData = { cards, connections, comments };
+      localStorage.setItem(`worldsmith-board-${currentBoard._id}`, JSON.stringify(boardData));
+      localStorage.setItem("worldsmith-boards", JSON.stringify(boards));
 
-  // Save connections to localStorage whenever they change
-  useEffect(() => {
-    if (connections.length > 0) {
-      localStorage.setItem("worldbuilding-connections", JSON.stringify(connections));
+      toast({
+        title: "Saved Locally",
+        description: "Your work has been saved to browser storage.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }, [connections]);
+  }, [cards, connections, comments, currentBoard, boards, toast]);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onAddNote: () => addCard("note"),
+    onAddCharacter: () => addCard("character"),
+    onAddLocation: () => addCard("location"),
+    onAddPlot: () => addCard("plot"),
+    onAddItem: () => addCard("item"),
+    onToggleConnection: () => setConnectionMode(!connectionMode),
+    onSearch: () => setSearchPanelOpen(true),
+    onComment: () => setCommentPanelOpen(true),
+    onSave: handleSave,
+  });
+
+  // Load boards and current board data
+  useEffect(() => {
+    const loadBoards = async () => {
+      setIsLoading(true);
+      try {
+        const boardsData = await api.get(`/boards?userId=${currentUser._id}`);
+        if (boardsData.length > 0) {
+          setBoards(boardsData);
+          setCurrentBoard(boardsData[0]);
+        } else {
+          await createDefaultBoard();
+        }
+      } catch (error) {
+        console.error('Failed to load boards from server:', error);
+        // Fallback to localStorage
+        const savedBoards = localStorage.getItem("worldsmith-boards");
+        if (savedBoards) {
+          const parsed = JSON.parse(savedBoards);
+          setBoards(parsed);
+          setCurrentBoard(parsed[0]);
+        } else {
+          await createDefaultBoard();
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const createDefaultBoard = async () => {
+      const defaultBoard: Board = {
+        _id: `board-${Date.now()}`,
+        name: "My First Board",
+        description: "Start building your world",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: currentUser._id,
+        permissions: [{
+          userId: currentUser._id,
+          role: "owner",
+          grantedBy: currentUser._id,
+          grantedAt: new Date().toISOString(),
+        }],
+        tags: [],
+        isPublic: false,
+      };
+
+      try {
+        await api.post('/boards', defaultBoard);
+        setBoards([defaultBoard]);
+        setCurrentBoard(defaultBoard);
+        localStorage.setItem("worldsmith-boards", JSON.stringify([defaultBoard]));
+      } catch (error) {
+        console.error('Failed to create default board:', error);
+        // Fallback to localStorage only
+        setBoards([defaultBoard]);
+        setCurrentBoard(defaultBoard);
+        localStorage.setItem("worldsmith-boards", JSON.stringify([defaultBoard]));
+      }
+    };
+
+    loadBoards();
+  }, [currentUser._id]);
+
+  useEffect(() => {
+    const loadBoardData = async (boardId: string) => {
+      if (!boardId) return;
+
+      setIsLoading(true);
+      try {
+        const boardData = await api.get(`/boards/${boardId}/data`);
+        setCards(boardData.cards || []);
+        setConnections(boardData.connections || []);
+        setComments(boardData.comments || []);
+      } catch (error) {
+        console.error('Failed to load board data from server:', error);
+        // Fallback to localStorage
+        const savedData = localStorage.getItem(`worldsmith-board-${boardId}`);
+        if (savedData) {
+          const { cards: savedCards, connections: savedConnections, comments: savedComments } = JSON.parse(savedData);
+          setCards(savedCards || []);
+          setConnections(savedConnections || []);
+          setComments(savedComments || []);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (currentBoard) {
+      loadBoardData(currentBoard._id);
+    }
+  }, [currentBoard]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
       },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, delta } = event;
-    
+
     setCards((cards) =>
       cards.map((card) =>
-        card.id === active.id
-          ? { ...card, x: card.x + delta.x, y: card.y + delta.y }
+        card._id === active.id
+          ? {
+            ...card,
+            x: card.x + delta.x,
+            y: card.y + delta.y,
+            updatedAt: new Date().toISOString()
+          }
           : card
       )
     );
   };
 
-  const addCard = (type: CardType) => {
+  const addCard = async (type: CardType) => {
+    if (!currentBoard) return;
+
     const newCard: CanvasCard = {
-      id: `card-${Date.now()}`,
+      _id: `card-${Date.now()}`,
       type,
       x: Math.random() * 400 + 100,
       y: Math.random() * 300 + 100,
       content: type === "note" ? "Start typing..." : "",
       title: type !== "note" ? `New ${type}` : undefined,
+      tags: [],
+      attachments: [],
+      createdBy: currentUser._id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      version: 1,
+      boardId: currentBoard._id,
     };
+
     setCards([...cards, newCard]);
+
+    // Save to server in background
+    try {
+      await api.post('/cards', newCard);
+    } catch (error) {
+      console.error('Failed to save card to server:', error);
+    }
   };
 
-  const updateCard = (id: string, updates: Partial<CanvasCard>) => {
+  const updateCard = async (id: string, updates: Partial<CanvasCard>) => {
     setCards((cards) =>
-      cards.map((card) => (card.id === id ? { ...card, ...updates } : card))
+      cards.map((card) =>
+        card._id === id
+          ? {
+            ...card,
+            ...updates,
+            updatedAt: new Date().toISOString(),
+            version: card.version + 1
+          }
+          : card
+      )
     );
+
+    // Update in server in background
+    try {
+      await api.put(`/cards/${id}`, updates);
+    } catch (error) {
+      console.error('Failed to update card in server:', error);
+    }
   };
 
-  const deleteCard = (id: string) => {
-    setCards((cards) => cards.filter((card) => card.id !== id));
-    // Also delete any connections to/from this card
+  const deleteCard = async (id: string) => {
+    setCards((cards) => cards.filter((card) => card._id !== id));
     setConnections((conns) =>
       conns.filter((conn) => conn.fromCardId !== id && conn.toCardId !== id)
     );
+    setComments((comments) => comments.filter((comment) => comment.cardId !== id));
+
+    // Delete from server in background
+    try {
+      await api.delete(`/cards/${id}`);
+    } catch (error) {
+      console.error('Failed to delete card from server:', error);
+    }
   };
 
-  const handleCardClick = (cardId: string) => {
+  const handleCardClick = async (cardId: string) => {
     if (!connectionMode) return;
 
     if (!selectedCardForConnection) {
@@ -138,15 +376,26 @@ export const Canvas = () => {
         description: "Click a card to start again.",
       });
     } else {
-      // Create connection
       const newConnection: Connection = {
+        _id: `conn-${Date.now()}`,
         id: `conn-${Date.now()}`,
         fromCardId: selectedCardForConnection,
         toCardId: cardId,
+        type: "relationship",
+        createdBy: currentUser._id,
+        boardId: currentBoard?._id || "",
       };
       setConnections([...connections, newConnection]);
       setSelectedCardForConnection(null);
       setConnectionMode(false);
+
+      // Save to server in background
+      try {
+        await api.post('/connections', newConnection);
+      } catch (error) {
+        console.error('Failed to save connection to server:', error);
+      }
+
       toast({
         title: "Connection created",
         description: "Cards have been linked.",
@@ -154,15 +403,59 @@ export const Canvas = () => {
     }
   };
 
-  const deleteConnection = (id: string) => {
-    setConnections((conns) => conns.filter((conn) => conn.id !== id));
+  const createBoard = async (name: string, templateId?: string) => {
+    const newBoard: Board = {
+      _id: `board-${Date.now()}`,
+      name,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: currentUser._id,
+      permissions: [{
+        userId: currentUser._id,
+        role: "owner",
+        grantedBy: currentUser._id,
+        grantedAt: new Date().toISOString(),
+      }],
+      tags: [],
+      isPublic: false,
+      templateId,
+    };
+
+    try {
+      await api.post('/boards', newBoard);
+      setBoards([...boards, newBoard]);
+      setCurrentBoard(newBoard);
+
+      // Clear current data for new board
+      setCards([]);
+      setConnections([]);
+      setComments([]);
+    } catch (error) {
+      console.error('Failed to create board in server:', error);
+      // Fallback to localStorage
+      setBoards([...boards, newBoard]);
+      setCurrentBoard(newBoard);
+      setCards([]);
+      setConnections([]);
+      setComments([]);
+      localStorage.setItem("worldsmith-boards", JSON.stringify([...boards, newBoard]));
+    }
   };
 
   const clearCanvas = () => {
     setCards([]);
     setConnections([]);
-    localStorage.removeItem("worldbuilding-canvas");
-    localStorage.removeItem("worldbuilding-connections");
+    setComments([]);
+    if (currentBoard) {
+      localStorage.removeItem(`worldsmith-board-${currentBoard._id}`);
+
+      // Clear from server in background
+      try {
+        api.post(`/boards/${currentBoard._id}/clear`, {});
+      } catch (error) {
+        console.error('Failed to clear canvas in server:', error);
+      }
+    }
     toast({
       title: "Canvas cleared",
       description: "All cards and connections have been removed.",
@@ -170,13 +463,20 @@ export const Canvas = () => {
   };
 
   const exportCanvas = () => {
-    const data = { cards, connections };
+    const data = {
+      board: currentBoard,
+      cards,
+      connections,
+      comments,
+      exportedAt: new Date().toISOString(),
+      version: "1.0"
+    };
     const dataStr = JSON.stringify(data, null, 2);
     const dataBlob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `worldbuilding-canvas-${Date.now()}.json`;
+    link.download = `worldsmith-${currentBoard?.name || 'canvas'}-${Date.now()}.json`;
     link.click();
     URL.revokeObjectURL(url);
     toast({
@@ -190,12 +490,26 @@ export const Canvas = () => {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const imported = JSON.parse(e.target?.result as string);
         if (imported.cards) {
           setCards(imported.cards);
           setConnections(imported.connections || []);
+          setComments(imported.comments || []);
+
+          // Save imported data to server
+          if (currentBoard) {
+            try {
+              await api.post(`/boards/${currentBoard._id}/import`, {
+                cards: imported.cards,
+                connections: imported.connections,
+                comments: imported.comments
+              });
+            } catch (error) {
+              console.error('Failed to save imported data to server:', error);
+            }
+          }
         } else {
           // Legacy format (just cards)
           setCards(imported);
@@ -215,45 +529,156 @@ export const Canvas = () => {
     reader.readAsText(file);
   };
 
+  const handleInviteUser = async (email: string, role: "editor" | "viewer") => {
+    if (!currentBoard) return;
+
+    try {
+      const newPermission: Permission = {
+        userId: `user-${Date.now()}`, // In real app, this would be the actual user ID
+        role,
+        grantedBy: currentUser._id,
+        grantedAt: new Date().toISOString(),
+      };
+
+      const updatedBoard = {
+        ...currentBoard,
+        permissions: [...currentBoard.permissions, newPermission],
+        updatedAt: new Date().toISOString(),
+      };
+
+      setCurrentBoard(updatedBoard);
+      setBoards(boards.map(b => b._id === currentBoard._id ? updatedBoard : b));
+
+      // Update in server
+      await api.put(`/boards/${currentBoard._id}`, { permissions: updatedBoard.permissions });
+
+      toast({
+        title: "User invited",
+        description: `${email} has been added as ${role}`,
+      });
+
+    } catch (error) {
+      console.error("Failed to invite user:", error);
+      toast({
+        title: "Invitation failed",
+        description: "Could not invite user. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Helper function to extract mentions from comment content
+  const extractMentions = (content: string): string[] => {
+    const mentionRegex = /@(\w+)/g;
+    const matches = content.match(mentionRegex);
+    return matches ? matches.map(match => match.substring(1)) : [];
+  };
+
+  const deleteConnection = async (connectionId: string) => {
+    setConnections(connections => connections.filter(conn => conn._id !== connectionId));
+
+    // Delete from server in background
+    try {
+      await api.delete(`/connections/${connectionId}`);
+    } catch (error) {
+      console.error('Failed to delete connection from server:', error);
+    }
+  };
+
+  const updateConnection = async (connectionId: string, updates: Partial<Connection>) => {
+    setConnections(connections =>
+      connections.map(conn =>
+        conn._id === connectionId ? { ...conn, ...updates } : conn
+      )
+    );
+
+    // Update in server in background
+    try {
+      await api.put(`/connections/${connectionId}`, updates);
+    } catch (error) {
+      console.error('Failed to update connection in server:', error);
+    }
+  };
+
+  const addComment = async (cardId: string, content: string) => {
+    const newComment: Comment = {
+      _id: `comment-${Date.now()}`,
+      cardId,
+      content,
+      createdBy: currentUser._id,
+      createdAt: new Date().toISOString(),
+      mentions: extractMentions(content),
+      resolved: false,
+      boardId: currentBoard?._id || "",
+    };
+
+    setComments([...comments, newComment]);
+
+    // Save to server in background
+    try {
+      await api.post('/comments', newComment);
+    } catch (error) {
+      console.error('Failed to save comment to server:', error);
+    }
+  };
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-canvas-bg">
-      <Sidebar 
-        isOpen={sidebarOpen} 
+      <Sidebar
+        isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
         onClear={clearCanvas}
         onExport={exportCanvas}
         onImport={importCanvas}
+        onSave={handleSave}
       />
-      
+
       <div className="flex-1 flex flex-col">
-        <Toolbar 
-          onAddCard={addCard}
-          connectionMode={connectionMode}
-          onToggleConnectionMode={() => {
-            setConnectionMode(!connectionMode);
-            setSelectedCardForConnection(null);
-            if (!connectionMode) {
-              toast({
-                title: "Connection mode enabled",
-                description: "Click two cards to connect them.",
-              });
-            }
-          }}
-        />
-        
-        <div className="flex-1 relative overflow-auto">
-          <div 
-            className="absolute inset-0 min-w-[200%] min-h-[200%]"
-            style={{
-              backgroundImage: `
-                linear-gradient(hsl(var(--border)) 1px, transparent 1px),
-                linear-gradient(90deg, hsl(var(--border)) 1px, transparent 1px)
-              `,
-              backgroundSize: "24px 24px",
-              backgroundPosition: "0 0, 0 0",
-            }}
-          >
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
+        <div className="flex items-center justify-between border-b p-4">
+          <BoardSelector
+            boards={boards}
+            currentBoard={currentBoard}
+            onSelectBoard={setCurrentBoard}
+            onCreateBoard={createBoard}
+          />
+          <div className="flex items-center gap-4">
+            {isLoading && (
+              <div className="text-sm text-muted-foreground">
+                Saving...
+              </div>
+            )}
+            <CollaborationUsers
+              users={onlineUsers}
+              currentBoardId={currentBoard?._id}
+              currentUser={currentUser}
+              onInviteUser={handleInviteUser}
+            />
+            <Toolbar
+              onAddCard={addCard}
+              connectionMode={connectionMode}
+              onToggleConnectionMode={() => {
+                setConnectionMode(!connectionMode);
+                setSelectedCardForConnection(null);
+                if (!connectionMode) {
+                  toast({
+                    title: "Connection mode enabled",
+                    description: "Click two cards to connect them.",
+                  });
+                } else {
+                  toast({
+                    title: "Connection mode disabled",
+                  });
+                }
+              }}
+              onToggleComments={() => setCommentPanelOpen(!commentPanelOpen)}
+              onToggleSearch={() => setSearchPanelOpen(!searchPanelOpen)}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 relative overflow-auto canvas-area">
+          <div className="absolute inset-0 min-w-[200%] min-h-[200%] bg-grid bg-24px">
+            <svg className="absolute inset-0 w-full h-full pointer-events-none connection-layer">
               <defs>
                 <marker
                   id="arrowhead"
@@ -269,25 +694,28 @@ export const Canvas = () => {
               <g className="pointer-events-auto">
                 {connections.map((connection) => (
                   <ConnectionLine
-                    key={connection.id}
+                    key={connection._id}
                     connection={connection}
                     cards={cards}
                     onDelete={deleteConnection}
+                    onUpdate={updateConnection}
                   />
                 ))}
               </g>
             </svg>
+
             <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
               {cards.map((card) => (
                 <div
-                  key={card.id}
-                  onClick={() => handleCardClick(card.id)}
-                  className={selectedCardForConnection === card.id ? "ring-4 ring-ring rounded-lg" : ""}
+                  key={card._id}
+                  onClick={() => handleCardClick(card._id)}
+                  className={selectedCardForConnection === card._id ? "ring-4 ring-ring rounded-lg" : ""}
                 >
                   <Card
                     card={card}
                     onUpdate={updateCard}
                     onDelete={deleteCard}
+                    onAddComment={addComment}
                   />
                 </div>
               ))}
@@ -295,6 +723,49 @@ export const Canvas = () => {
           </div>
         </div>
       </div>
+
+      {commentPanelOpen && (
+        <CommentPanel
+          comments={comments}
+          cards={cards}
+          onClose={() => setCommentPanelOpen(false)}
+          onResolveComment={(id) => setComments(comments =>
+            comments.map(c => c._id === id ? { ...c, resolved: true } : c)
+          )}
+          onDeleteComment={(id) => setComments(comments =>
+            comments.filter(c => c._id !== id)
+          )}
+          onNavigateToCard={(cardId) => {
+            const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+            if (cardElement) {
+              cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              cardElement.classList.add('ring-4', 'ring-ring');
+              setTimeout(() => {
+                cardElement.classList.remove('ring-4', 'ring-ring');
+              }, 2000);
+            }
+          }}
+        />
+      )}
+
+      {searchPanelOpen && (
+        <SearchPanel
+          cards={cards}
+          connections={connections}
+          comments={comments}
+          onClose={() => setSearchPanelOpen(false)}
+          onSelectCard={(cardId) => {
+            const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+            if (cardElement) {
+              cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              cardElement.classList.add('ring-4', 'ring-ring');
+              setTimeout(() => {
+                cardElement.classList.remove('ring-4', 'ring-ring');
+              }, 2000);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

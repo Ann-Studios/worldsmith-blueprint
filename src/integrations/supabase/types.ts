@@ -1,155 +1,142 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type CardType = "note" | "character" | "location" | "plot" | "item";
 
-export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
-  public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      [_ in never]: never
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
+export interface Board {
+  id: string;
+  name: string;
+  description?: string;
+  parentFolderId?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  permissions: Permission[];
+  tags: string[];
+  templateId?: string;
+  isPublic?: boolean;
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
-
-export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+export interface Folder {
+  id: string;
+  name: string;
+  parentFolderId?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
-    }
-    ? R
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
 
-export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+export interface CanvasCard {
+  id: string;
+  type: CardType;
+  x: number;
+  y: number;
+  content: string;
+  title?: string;
+  tags: string[];
+  attachments: Attachment[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+  boardId?: string;
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
 
-export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+export interface Connection {
+  id: string;
+  fromCardId: string;
+  toCardId: string;
+  label?: string;
+  type: "relationship" | "dependency" | "timeline" | "custom";
+  color?: string;
+  createdBy: string;
+  boardId?: string;
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
 
-export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+export interface Comment {
+  id: string;
+  cardId: string;
+  content: string;
+  createdBy: string;
+  createdAt: string;
+  mentions: string[];
+  resolved: boolean;
+  x?: number;
+  y?: number;
+  boardId?: string;
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
 
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+export interface Attachment {
+  id: string;
+  cardId: string;
+  filename: string;
+  url: string;
+  type: "image" | "file";
+  uploadedBy: string;
+  uploadedAt: string;
+  size: number;
 }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
 
-export const Constants = {
-  public: {
-    Enums: {},
-  },
-} as const
+export interface Permission {
+  userId: string;
+  role: "owner" | "editor" | "viewer";
+  grantedBy: string;
+  grantedAt: string;
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  cards: CanvasCard[];
+  connections: Connection[];
+  isPublic: boolean;
+  createdBy: string;
+}
+
+export interface CollaborationUser {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  role: "owner" | "editor" | "viewer";
+  isOnline: boolean;
+  lastSeen?: string;
+  cursor?: { x: number; y: number };
+  currentCard?: string;
+}
+
+// MongoDB specific interfaces (optional - if you want to differentiate)
+export interface MongoDBBoard extends Omit<Board, 'id'> {
+  _id: string;
+}
+
+export interface MongoDBCanvasCard extends Omit<CanvasCard, 'id'> {
+  _id: string;
+}
+
+export interface MongoDBConnection extends Omit<Connection, 'id'> {
+  _id: string;
+}
+
+export interface MongoDBComment extends Omit<Comment, 'id'> {
+  _id: string;
+}
+
+// Search and filter types
+export interface SearchFilters {
+  cardTypes: string[];
+  tags: string[];
+  timeRange: "all" | "day" | "week" | "month";
+}
+
+export interface SearchResult {
+  id: string;
+  type: "card" | "connection" | "comment";
+  title?: string;
+  content: string;
+  cardType?: string;
+  relevance: number;
+  tags?: string[];
+  timestamp?: string;
+  author?: string;
+  preview?: string;
+}

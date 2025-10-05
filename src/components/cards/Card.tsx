@@ -11,9 +11,10 @@ interface CardProps {
   card: CanvasCard;
   onUpdate: (id: string, updates: Partial<CanvasCard>) => void;
   onDelete: (id: string) => void;
+  onAddComment?: (cardId: string, content: string) => void;
 }
 
-export const Card = ({ card, onUpdate, onDelete }: CardProps) => {
+export const Card = ({ card, onUpdate, onDelete, onAddComment }: CardProps) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
   });
@@ -43,7 +44,7 @@ export const Card = ({ card, onUpdate, onDelete }: CardProps) => {
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} data-card-id={card.id}>
       {renderCard()}
     </div>
   );

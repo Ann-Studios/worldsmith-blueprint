@@ -1,49 +1,74 @@
-import { StickyNote, Users, MapPin, BookOpen, Package, Link } from "lucide-react";
+import { Plus, Link, MessageSquare, Search } from "lucide-react";
 import { Button } from "./ui/button";
-import { CardType } from "./Canvas";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 interface ToolbarProps {
-  onAddCard: (type: CardType) => void;
+  onAddCard: (type: "note" | "character" | "location" | "plot" | "item") => void;
   connectionMode: boolean;
   onToggleConnectionMode: () => void;
+  onToggleComments?: () => void;
+  onToggleSearch?: () => void;
 }
 
-export const Toolbar = ({ onAddCard, connectionMode, onToggleConnectionMode }: ToolbarProps) => {
-  const tools = [
-    { type: "note" as CardType, icon: StickyNote, label: "Note" },
-    { type: "character" as CardType, icon: Users, label: "Character" },
-    { type: "location" as CardType, icon: MapPin, label: "Location" },
-    { type: "plot" as CardType, icon: BookOpen, label: "Plot" },
-    { type: "item" as CardType, icon: Package, label: "Item" },
-  ];
-
+export const Toolbar = ({
+  onAddCard,
+  connectionMode,
+  onToggleConnectionMode,
+  onToggleComments,
+  onToggleSearch
+}: ToolbarProps) => {
   return (
-    <div className="h-16 border-b bg-card flex items-center px-6 gap-2">
-      <div className="flex items-center gap-2">
-        {tools.map((tool) => (
-          <Button
-            key={tool.type}
-            variant="ghost"
-            size="sm"
-            onClick={() => onAddCard(tool.type)}
-            className="gap-2"
-          >
-            <tool.icon className="w-4 h-4" />
-            <span>{tool.label}</span>
+    <div className="flex items-center gap-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Card
           </Button>
-        ))}
-      </div>
-      <div className="ml-auto flex items-center gap-2">
-        <Button
-          variant={connectionMode ? "default" : "ghost"}
-          size="sm"
-          onClick={onToggleConnectionMode}
-          className="gap-2"
-        >
-          <Link className="w-4 h-4" />
-          <span>{connectionMode ? "Connecting..." : "Connect"}</span>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onClick={() => onAddCard("note")}>
+            Note
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onAddCard("character")}>
+            Character
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onAddCard("location")}>
+            Location
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onAddCard("plot")}>
+            Plot
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onAddCard("item")}>
+            Item
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Button
+        variant={connectionMode ? "default" : "outline"}
+        onClick={onToggleConnectionMode}
+      >
+        <Link className="w-4 h-4 mr-2" />
+        Connect
+      </Button>
+
+      {onToggleComments && (
+        <Button variant="outline" size="icon" onClick={onToggleComments}>
+          <MessageSquare className="w-4 h-4" />
         </Button>
-      </div>
+      )}
+
+      {onToggleSearch && (
+        <Button variant="outline" size="icon" onClick={onToggleSearch}>
+          <Search className="w-4 h-4" />
+        </Button>
+      )}
     </div>
   );
 };
