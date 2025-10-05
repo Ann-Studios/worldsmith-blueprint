@@ -26,9 +26,6 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from React build
-app.use(express.static(path.join(__dirname, '../dist')));
-
 // MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -415,11 +412,6 @@ app.get('/health', (req, res) => {
         mongodb: mongoStatus,
         environment: process.env.NODE_ENV || 'development'
     });
-});
-
-// Serve React app
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 // Error handling middleware
