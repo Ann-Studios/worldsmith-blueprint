@@ -104,6 +104,7 @@ export const Canvas = () => {
   const { toast } = useToast();
 
   const { user, logout } = useAuth();
+  const onlineUsers = [currentUser];
 
   // Replace the mock currentUser with the real authenticated user
   const currentUser = {
