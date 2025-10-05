@@ -150,3 +150,94 @@ All colors MUST be HSL.
 .bg-24px {
   background-size: 24px 24px;
 }
+
+/* onboarding.css */
+.onboarding-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9998;
+}
+
+.onboarding-tooltip {
+  position: fixed;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  max-width: 400px;
+  border: 2px solid #3b82f6;
+}
+
+.onboarding-tooltip[data-position="center"] {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.onboarding-tooltip[data-position="top-right"] {
+  top: 20px;
+  right: 20px;
+}
+
+.onboarding-tooltip[data-position="bottom-right"] {
+  bottom: 20px;
+  right: 20px;
+}
+
+.onboarding-content h2 {
+  margin: 0 0 12px 0;
+  color: #1f2937;
+}
+
+.onboarding-content p {
+  margin: 0 0 16px 0;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.onboarding-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.onboarding-progress {
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.onboarding-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.onboarding-highlight {
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3) !important;
+  border-radius: 4px;
+  transition: box-shadow 0.3s ease;
+}
+
+/* Welcome banner for returning users */
+.welcome-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 16px;
+  text-align: center;
+  position: relative;
+}
+
+.welcome-banner button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 12px;
+}

@@ -7,6 +7,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from '@/hooks/useAuth';
+import { OnboardingProvider } from '@/contexts/OnboardingContext'; // Add this import
+import { OnboardingManager } from '@/components/onboarding/OnboardingManager'; // Add this import
 
 const queryClient = new QueryClient();
 
@@ -17,11 +19,20 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          {/* Wrap with OnboardingProvider */}
+          <OnboardingProvider>
+            <Routes>
+              <Route path="/" element={
+                <>
+                  <Index />
+                  {/* Add OnboardingManager to your main page */}
+                  <OnboardingManager />
+                </>
+              } />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </OnboardingProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

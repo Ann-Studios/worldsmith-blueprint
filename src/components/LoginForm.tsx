@@ -91,6 +91,7 @@ export const LoginForm = () => {
                                 required
                                 placeholder="Enter your password"
                                 minLength={6}
+                                autoComplete="current-password"
                             />
                         </div>
 

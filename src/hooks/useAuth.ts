@@ -1,4 +1,4 @@
-// hooks/useAuth.ts (without JSX)
+// hooks/useAuth.ts
 import { createContext, useContext, useEffect, useState, ReactNode, createElement } from 'react';
 import { api } from '@/config/api';
 
@@ -37,13 +37,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const token = localStorage.getItem('auth_token');
       if (token) {
-        const response = await api.get('/auth/me');
-        if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
-        } else {
-          localStorage.removeItem('auth_token');
-        }
+        const userData = await api.get('/auth/me');
+        setUser(userData);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -56,17 +51,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await api.post('/auth/login', { email, password });
-      if (!response.ok) {
-        throw new Error('Login failed');
-      }
-
-      const { user: userData, token } = await response.json();
-      localStorage.setItem('auth_token', token);
-      setUser(userData);
-    } catch (error) {
+      const userData = await api.post('/auth/login', { email, password });
+      localStorage.setItem('auth_token', userData.token);
+      setUser(userData.user);
+    } catch (error: any) {
       console.error('Login error:', error);
-      throw error;
+      if (error.message.includes('400') || error.message.includes('401')) {
+        throw new Error('Invalid email or password');
+      } else if (error.message.includes('500')) {
+        throw new Error('Server error. Please try again later.');
+      } else {
+        throw new Error('Login failed. Please check your connection.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -75,17 +71,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const register = async (name: string, email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await api.post('/auth/register', { name, email, password });
-      if (!response.ok) {
-        throw new Error('Registration failed');
-      }
-
-      const { user: userData, token } = await response.json();
-      localStorage.setItem('auth_token', token);
-      setUser(userData);
-    } catch (error) {
+      const userData = await api.post('/auth/register', { name, email, password });
+      localStorage.setItem('auth_token', userData.token);
+      setUser(userData.user);
+    } catch (error: any) {
       console.error('Registration error:', error);
-      throw error;
+      if (error.message.includes('User already exists')) {
+        throw new Error('An account with this email already exists. Please login instead.');
+      } else if (error.message.includes('400')) {
+        throw new Error('Please check your information and try again.');
+      } else {
+        throw new Error('Registration failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -105,6 +102,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     isAuthenticated: !!user
   };
 
+  // Use createElement instead of JSX since this is a .ts file
   return createElement(AuthContext.Provider, { value }, children);
 };
 
