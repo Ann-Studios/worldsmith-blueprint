@@ -7,6 +7,8 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
+const Profile = require('../models/Profile');
+
 // ES module equivalents for __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -984,6 +986,56 @@ app.get('/cards/:cardId/comments', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Failed to fetch comments:', error);
         res.status(500).json({ error: 'Failed to fetch comments' });
+    }
+});
+
+
+// GET /api/profile/:userId
+router.get('/:userId', auth, async (req, res) => {
+    try {
+        const profile = await Profile.findOne({ userId: req.params.userId });
+        if (!profile) {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
+        res.json(profile);
+    } catch (error) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PUT /api/profile/:userId
+router.put('/:userId', auth, async (req, res) => {
+    try {
+        // Check if user owns this profile
+        if (req.params.userId !== req.user.userId) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const profile = await Profile.findOneAndUpdate(
+            { userId: req.params.userId },
+            {
+                ...req.body,
+                updatedAt: new Date()
+            },
+            { new: true, upsert: true }
+        );
+
+        res.json(profile);
+    } catch (error) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/profile/:userId/avatar
+router.post('/:userId/avatar', auth, async (req, res) => {
+    try {
+        // Handle file upload here (using multer or similar)
+        // This is a simplified example
+        const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+        res.json({ avatarUrl });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to upload avatar' });
     }
 });
 

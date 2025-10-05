@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound";
 import { AuthProvider } from '@/hooks/useAuth';
 import { OnboardingProvider } from '@/contexts/OnboardingContext'; // Add this import
 import { OnboardingManager } from '@/components/onboarding/OnboardingManager'; // Add this import
+import { Profile } from './pages/Profile';
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
                   <OnboardingManager />
                 </>
               } />
+              <Route path="/profile" element={<Profile />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
