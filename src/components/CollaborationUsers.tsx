@@ -85,7 +85,7 @@ export const CollaborationUsers = ({
                 onInviteUser(inviteEmail, inviteRole);
             } else {
                 // MongoDB implementation - call API to invite user
-                const response = await fetch('/api/boards/invite', {
+                const response = await fetch('/boards/invite', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -125,7 +125,7 @@ export const CollaborationUsers = ({
                 onPermissionChange(userId, newRole);
             } else {
                 // MongoDB implementation - call API to update role
-                const response = await fetch('/api/boards/permissions', {
+                const response = await fetch('/boards/permissions', {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -161,7 +161,7 @@ export const CollaborationUsers = ({
                 onRemoveUser(userId);
             } else {
                 // MongoDB implementation - call API to remove user
-                const response = await fetch('/api/boards/permissions', {
+                const response = await fetch('/boards/permissions', {
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json',

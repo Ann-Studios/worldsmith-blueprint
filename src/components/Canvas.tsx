@@ -12,6 +12,7 @@ import { CommentPanel } from "./CommentPanel";
 import { SearchPanel } from "./SearchPanel";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { api } from "@/config/api";
+import { useAuth } from '@/hooks/useAuth';
 
 export type CardType = "note" | "character" | "location" | "plot" | "item";
 
@@ -102,25 +103,24 @@ export const Canvas = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Mock current user - replace with actual authentication
+  const { user, logout } = useAuth();
+
+  // Replace the mock currentUser with the real authenticated user
   const currentUser = {
-    id: "user-1",
-    _id: "user-1",
-    name: "Current User",
-    email: "user@example.com",
-    role: "owner" as const,
+    id: user?._id || '',
+    _id: user?._id || '',
+    name: user?.name || '',
+    email: user?.email || '',
+    role: 'owner' as const,
     isOnline: true,
   };
 
-  // Mock online users for collaboration
-  const onlineUsers = [{
-    id: "user-1",
-    _id: "user-1",
-    name: "Current User",
-    email: "user@example.com",
-    role: "owner" as const,
-    isOnline: true,
-  }];
+  // Add logout button to toolbar or user menu
+  const handleLogout = () => {
+    logout();
+    // Optional: Clear local storage data
+    localStorage.removeItem('worldsmith-boards');
+  };
 
   // Handle save function
   const handleSave = useCallback(async () => {
@@ -243,6 +243,12 @@ export const Canvas = () => {
       setIsLoading(true);
       try {
         const boardData = await api.get(`/boards/${boardId}/data`);
+        console.log('📥 Loaded board data:', {
+          cardsCount: boardData.cards?.length || 0,
+          connectionsCount: boardData.connections?.length || 0,
+          commentsCount: boardData.comments?.length || 0
+        });
+
         setCards(boardData.cards || []);
         setConnections(boardData.connections || []);
         setComments(boardData.comments || []);
@@ -280,6 +286,8 @@ export const Canvas = () => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, delta } = event;
 
+    console.log('🔄 Drag end:', { activeId: active.id, delta });
+
     setCards((cards) =>
       cards.map((card) =>
         card._id === active.id
@@ -297,8 +305,11 @@ export const Canvas = () => {
   const addCard = async (type: CardType) => {
     if (!currentBoard) return;
 
+    const cardId = `card-${Date.now()}`;
+    console.log('➕ Creating new card:', { cardId, type });
+
     const newCard: CanvasCard = {
-      _id: `card-${Date.now()}`,
+      _id: cardId,
       type,
       x: Math.random() * 400 + 100,
       y: Math.random() * 300 + 100,
@@ -313,17 +324,38 @@ export const Canvas = () => {
       boardId: currentBoard._id,
     };
 
-    setCards([...cards, newCard]);
+    setCards(prevCards => {
+      const updatedCards = [...prevCards, newCard];
+      console.log('📋 Cards after add:', updatedCards.map(c => ({ id: c._id, type: c.type })));
+      return updatedCards;
+    });
 
     // Save to server in background
     try {
       await api.post('/cards', newCard);
+      console.log('✅ Card saved to server:', cardId);
     } catch (error) {
       console.error('Failed to save card to server:', error);
     }
   };
 
   const updateCard = async (id: string, updates: Partial<CanvasCard>) => {
+    console.log('🔄 updateCard called:', { id, updates });
+
+    // Validate ID
+    if (!id || id === 'undefined') {
+      console.error('❌ Invalid card ID in updateCard:', id);
+      return;
+    }
+
+    // Check if card exists in local state
+    const cardExists = cards.find(card => card._id === id);
+    if (!cardExists) {
+      console.error('❌ Card not found in local state:', id);
+      console.log('📋 Available cards:', cards.map(c => c._id));
+      return;
+    }
+
     setCards((cards) =>
       cards.map((card) =>
         card._id === id
@@ -340,12 +372,15 @@ export const Canvas = () => {
     // Update in server in background
     try {
       await api.put(`/cards/${id}`, updates);
+      console.log('✅ Card updated on server:', id);
     } catch (error) {
       console.error('Failed to update card in server:', error);
     }
   };
 
   const deleteCard = async (id: string) => {
+    console.log('🗑️ Deleting card:', id);
+
     setCards((cards) => cards.filter((card) => card._id !== id));
     setConnections((conns) =>
       conns.filter((conn) => conn.fromCardId !== id && conn.toCardId !== id)
@@ -355,6 +390,7 @@ export const Canvas = () => {
     // Delete from server in background
     try {
       await api.delete(`/cards/${id}`);
+      console.log('✅ Card deleted from server:', id);
     } catch (error) {
       console.error('Failed to delete card from server:', error);
     }
@@ -622,6 +658,15 @@ export const Canvas = () => {
     }
   };
 
+  // Debug effect to log card state changes
+  useEffect(() => {
+    console.log('📊 Current cards state:', cards.map(card => ({
+      id: card._id,
+      type: card.type,
+      content: card.content.substring(0, 20) + '...'
+    })));
+  }, [cards]);
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-canvas-bg">
       <Sidebar
@@ -708,6 +753,7 @@ export const Canvas = () => {
               {cards.map((card) => (
                 <div
                   key={card._id}
+                  data-card-id={card._id} // Add data attribute for easier debugging
                   onClick={() => handleCardClick(card._id)}
                   className={selectedCardForConnection === card._id ? "ring-4 ring-ring rounded-lg" : ""}
                 >

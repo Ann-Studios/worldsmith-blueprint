@@ -72,8 +72,8 @@ export const BoardSelector = ({ boards, currentBoard, onSelectBoard, onCreateBoa
                     <div className="max-h-60 overflow-auto">
                         {boards.map((board) => (
                             <div
-                                key={board.id}
-                                className={`flex items-center justify-between p-2 hover:bg-accent cursor-pointer ${currentBoard?.id === board.id ? "bg-accent" : ""
+                                key={board._id}
+                                className={`flex items-center justify-between p-2 hover:bg-accent cursor-pointer ${currentBoard?._id === board._id ? "bg-accent" : ""
                                     }`}
                                 onClick={() => {
                                     onSelectBoard(board);

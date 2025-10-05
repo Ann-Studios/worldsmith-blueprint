@@ -19,7 +19,7 @@ export const NoteCard = ({ card, onUpdate, onDelete }: NoteCardProps) => {
           className="h-6 w-6"
           onClick={(e) => {
             e.stopPropagation();
-            onDelete(card.id);
+            onDelete(card._id);
           }}
         >
           <Trash2 className="w-3 h-3" />
@@ -27,7 +27,7 @@ export const NoteCard = ({ card, onUpdate, onDelete }: NoteCardProps) => {
       </div>
       <Textarea
         value={card.content}
-        onChange={(e) => onUpdate(card.id, { content: e.target.value })}
+        onChange={(e) => onUpdate(card._id, { content: e.target.value })}
         className="min-h-[120px] resize-none border-0 focus-visible:ring-0 p-0"
         placeholder="Start typing..."
         onClick={(e) => e.stopPropagation()}

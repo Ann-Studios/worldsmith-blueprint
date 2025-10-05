@@ -142,7 +142,7 @@ export const SearchPanel = ({
 
                 if (relevance > 0) {
                     results.push({
-                        id: card.id,
+                        id: card._id,
                         type: "card",
                         title: card.title,
                         content: card.content,
@@ -160,8 +160,8 @@ export const SearchPanel = ({
         // Search connections
         if (activeTab === "all" || activeTab === "connections") {
             connections.forEach(connection => {
-                const fromCard = cards.find(c => c.id === connection.fromCardId);
-                const toCard = cards.find(c => c.id === connection.toCardId);
+                const fromCard = cards.find(c => c._id === connection.fromCardId);
+                const toCard = cards.find(c => c._id === connection.toCardId);
 
                 if (!fromCard || !toCard) return;
 
@@ -216,9 +216,9 @@ export const SearchPanel = ({
                 });
 
                 if (relevance > 0) {
-                    const card = cards.find(c => c.id === comment.cardId);
+                    const card = cards.find(c => c._id === comment.cardId);
                     results.push({
-                        id: comment.id,
+                        id: comment._id,
                         type: "comment",
                         title: `Comment on ${card?.title || 'Card'}`,
                         content: comment.content,
@@ -415,7 +415,7 @@ export const SearchPanel = ({
         } else if (result.type === "comment" && onSelectComment) {
             onSelectComment(result.id);
             // Also navigate to the card the comment is on
-            const comment = comments.find(c => c.id === result.id);
+            const comment = comments.find(c => c._id === result.id);
             if (comment && onSelectCard) {
                 onSelectCard(comment.cardId);
             }

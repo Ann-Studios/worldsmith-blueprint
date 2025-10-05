@@ -20,7 +20,7 @@ export const CharacterCard = ({ card, onUpdate, onDelete }: CharacterCardProps) 
           </div>
           <Input
             value={card.title || ""}
-            onChange={(e) => onUpdate(card.id, { title: e.target.value })}
+            onChange={(e) => onUpdate(card._id, { title: e.target.value })}
             className="font-semibold border-0 focus-visible:ring-0 p-0 h-auto bg-transparent"
             placeholder="Character Name"
             onClick={(e) => e.stopPropagation()}
@@ -32,7 +32,7 @@ export const CharacterCard = ({ card, onUpdate, onDelete }: CharacterCardProps) 
           className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
           onClick={(e) => {
             e.stopPropagation();
-            onDelete(card.id);
+            onDelete(card._id);
           }}
         >
           <Trash2 className="w-3 h-3" />
@@ -40,7 +40,7 @@ export const CharacterCard = ({ card, onUpdate, onDelete }: CharacterCardProps) 
       </div>
       <Textarea
         value={card.content}
-        onChange={(e) => onUpdate(card.id, { content: e.target.value })}
+        onChange={(e) => onUpdate(card._id, { content: e.target.value })}
         className="min-h-[100px] resize-none border-0 focus-visible:ring-0 p-0 bg-transparent"
         placeholder="Character details, traits, backstory..."
         onClick={(e) => e.stopPropagation()}

@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
-import { Upload, X, FileText, Image } from "lucide-react";
+import { Upload, FileText, Image } from "lucide-react";
 import { Button } from "./ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/config/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface FileUploadProps {
     onUploadComplete: (attachment: any) => void;
@@ -11,43 +12,58 @@ interface FileUploadProps {
 export const FileUpload = ({ onUploadComplete, cardId }: FileUploadProps) => {
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { toast } = useToast();
 
     const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
+        // Validate file size (e.g., 10MB limit)
+        const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+        if (file.size > maxSize) {
+            toast({
+                title: "File too large",
+                description: "Please select a file smaller than 10MB",
+                variant: "destructive",
+            });
+            return;
+        }
+
         setIsUploading(true);
 
         try {
-            // Upload to Supabase Storage
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${cardId}/${Math.random()}.${fileExt}`;
+            // Create FormData to send the file
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('cardId', cardId);
+            formData.append('filename', file.name);
+            formData.append('type', file.type.startsWith('image/') ? 'image' : 'file');
+            formData.append('size', file.size.toString());
 
-            const { data, error } = await supabase.storage
-                .from('attachments')
-                .upload(fileName, file);
+            // Upload to MongoDB Atlas via your API
+            const response = await api.post('/attachments/upload', formData, {headers: {'Content-Type': 'multipart/form-data',},});
 
-            if (error) throw error;
+            if (!response.ok) {
+                throw new Error('Failed to upload file');
+            }
 
-            // Get public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('attachments')
-                .getPublicUrl(fileName);
+            const attachment = await response.json();
 
-            const attachment = {
-                id: `att-${Date.now()}`,
-                cardId,
-                filename: file.name,
-                url: publicUrl,
-                type: file.type.startsWith('image/') ? 'image' : 'file',
-                uploadedBy: "user", // Replace with actual user
-                uploadedAt: new Date().toISOString(),
-                size: file.size,
-            };
-
+            // Call the callback with the attachment data
             onUploadComplete(attachment);
+
+            toast({
+                title: "File uploaded",
+                description: `${file.name} has been attached successfully`,
+            });
+
         } catch (error) {
             console.error('Upload failed:', error);
+            toast({
+                title: "Upload failed",
+                description: "Could not upload file. Please try again.",
+                variant: "destructive",
+            });
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) {
@@ -63,7 +79,7 @@ export const FileUpload = ({ onUploadComplete, cardId }: FileUploadProps) => {
                 type="file"
                 onChange={handleFileSelect}
                 className="hidden"
-                accept="image/*,.pdf,.doc,.docx,.txt"
+                accept="image/*,.pdf,.doc,.docx,.txt,.md"
             />
             <Button
                 variant="outline"

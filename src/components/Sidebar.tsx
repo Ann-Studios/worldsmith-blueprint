@@ -22,7 +22,7 @@ export const Sidebar = ({ isOpen, onToggle, onClear, onExport, onImport, onSave 
     <div
       className={cn(
         "h-full border-r bg-card transition-all duration-300 flex flex-col",
-        isOpen ? "w-64" : "w-0"
+        isOpen ? "w-64" : "w-16"
       )}
     >
       {isOpen && (

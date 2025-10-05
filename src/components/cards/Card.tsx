@@ -16,7 +16,7 @@ interface CardProps {
 
 export const Card = ({ card, onUpdate, onDelete, onAddComment }: CardProps) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: card.id,
+    id: card._id,
   });
 
   const style = {
@@ -44,7 +44,7 @@ export const Card = ({ card, onUpdate, onDelete, onAddComment }: CardProps) => {
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} data-card-id={card.id}>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} data-card-id={card._id}>
       {renderCard()}
     </div>
   );

@@ -82,13 +82,13 @@ export const CommentPanel = ({
 
     // Get card title for display
     const getCardTitle = (cardId: string) => {
-        const card = cards.find(c => c.id === cardId);
+        const card = cards.find(c => c._id === cardId);
         return card?.title || card?.content?.substring(0, 30) + "..." || "Unknown Card";
     };
 
     // Get card type for styling
     const getCardType = (cardId: string) => {
-        const card = cards.find(c => c.id === cardId);
+        const card = cards.find(c => c._id === cardId);
         return card?.type || "note";
     };
 
@@ -132,9 +132,9 @@ export const CommentPanel = ({
         // In a real app, this would create a nested comment/reply
         // For now, we'll create a new top-level comment
         if (onAddComment) {
-            const parentComment = comments.find(c => c.id === parentCommentId);
+            const parentComment = comments.find(c => c._id === parentCommentId);
             if (parentComment) {
-                onAddComment(parentComment.cardId, `@${getCommentAuthor(parentComment.id)} ${replyContent}`);
+                onAddComment(parentComment.cardId, `@${getCommentAuthor(parentComment._id)} ${replyContent}`);
             }
         }
 
@@ -155,7 +155,7 @@ export const CommentPanel = ({
 
     // Get comment author name
     const getCommentAuthor = (commentId: string) => {
-        const comment = comments.find(c => c.id === commentId);
+        const comment = comments.find(c => c._id === commentId);
         return comment?.createdBy || "Unknown User";
     };
 
@@ -276,8 +276,8 @@ export const CommentPanel = ({
                         >
                             <option value="">Select a card...</option>
                             {cards.map(card => (
-                                <option key={card.id} value={card.id}>
-                                    {getCardTitle(card.id)} ({card.type})
+                                <option key={card._id} value={card._id}>
+                                    {getCardTitle(card._id)} ({card.type})
                                 </option>
                             ))}
                         </select>
@@ -363,7 +363,7 @@ export const CommentPanel = ({
                                 <div className="space-y-3 ml-2 border-l-2 border-muted pl-3">
                                     {cardComments.map(comment => (
                                         <div
-                                            key={comment.id}
+                                            key={comment._id}
                                             className={`p-3 rounded-lg border ${comment.resolved ? "bg-muted/30" : "bg-background"
                                                 }`}
                                         >
@@ -390,7 +390,7 @@ export const CommentPanel = ({
                                                     <DropdownMenuContent align="end">
                                                         {!comment.resolved && (
                                                             <DropdownMenuItem
-                                                                onClick={() => onResolveComment(comment.id)}
+                                                                onClick={() => onResolveComment(comment._id)}
                                                                 className="flex items-center gap-2"
                                                             >
                                                                 <Check className="w-4 h-4" />
@@ -398,7 +398,7 @@ export const CommentPanel = ({
                                                             </DropdownMenuItem>
                                                         )}
                                                         <DropdownMenuItem
-                                                            onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+                                                            onClick={() => setReplyingTo(replyingTo === comment._id ? null : comment._id)}
                                                             className="flex items-center gap-2"
                                                         >
                                                             <Reply className="w-4 h-4" />
@@ -407,7 +407,7 @@ export const CommentPanel = ({
                                                         <DropdownMenuSeparator />
                                                         {comment.createdBy === currentUser.id && (
                                                             <DropdownMenuItem
-                                                                onClick={() => onDeleteComment(comment.id)}
+                                                                onClick={() => onDeleteComment(comment._id)}
                                                                 className="flex items-center gap-2 text-destructive"
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
@@ -453,7 +453,7 @@ export const CommentPanel = ({
                                             </div>
 
                                             {/* Reply Input */}
-                                            {replyingTo === comment.id && (
+                                            {replyingTo === comment._id && (
                                                 <div className="mt-3 space-y-2">
                                                     <Textarea
                                                         value={replyContent}
@@ -464,7 +464,7 @@ export const CommentPanel = ({
                                                     <div className="flex gap-2">
                                                         <Button
                                                             size="sm"
-                                                            onClick={() => handleAddReply(comment.id)}
+                                                            onClick={() => handleAddReply(comment._id)}
                                                             disabled={!replyContent.trim()}
                                                         >
                                                             Reply
@@ -497,7 +497,7 @@ export const CommentPanel = ({
                         onClick={() => {
                             const unresolved = comments.filter(c => !c.resolved);
                             if (unresolved.length > 0) {
-                                unresolved.forEach(comment => onResolveComment(comment.id));
+                                unresolved.forEach(comment => onResolveComment(comment._id));
                                 toast({
                                     title: "All comments resolved",
                                     description: `${unresolved.length} comments marked as resolved.`,
