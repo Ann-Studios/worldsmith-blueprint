@@ -7,8 +7,6 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-const Profile = require('../models/Profile');
-
 // ES module equivalents for __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -68,7 +66,8 @@ mongoose.connection.on('disconnected', () => {
     console.log('MongoDB disconnected');
 });
 
-// Mongoose Models
+// ========== MONGOOSE SCHEMAS ==========
+
 const BoardSchema = new mongoose.Schema({
     _id: { type: String, required: true },
     name: { type: String, required: true },
@@ -149,11 +148,123 @@ const UserSchema = new mongoose.Schema({
     updatedAt: { type: String, required: true }
 });
 
+// Profile Schema
+const ProfileSchema = new mongoose.Schema({
+    userId: {
+        type: String,
+        required: true,
+        unique: true
+    },
+    displayName: {
+        type: String,
+        trim: true,
+        maxlength: 50
+    },
+    bio: {
+        type: String,
+        trim: true,
+        maxlength: 500
+    },
+    avatar: {
+        type: String,
+        trim: true
+    },
+    socialLinks: {
+        website: { type: String, trim: true },
+        twitter: { type: String, trim: true },
+        github: { type: String, trim: true },
+        discord: { type: String, trim: true }
+    },
+    preferences: {
+        theme: {
+            type: String,
+            enum: ['light', 'dark', 'system'],
+            default: 'system'
+        },
+        notifications: {
+            type: Boolean,
+            default: true
+        },
+        language: {
+            type: String,
+            default: 'en'
+        }
+    },
+    stats: {
+        worldsCreated: {
+            type: Number,
+            default: 0
+        },
+        charactersCreated: {
+            type: Number,
+            default: 0
+        },
+        totalCards: {
+            type: Number,
+            default: 0
+        },
+        joinedDate: {
+            type: Date,
+            default: Date.now
+        }
+    }
+}, {
+    timestamps: true
+});
+
+// Template Schema
+const TemplateSchema = new mongoose.Schema({
+    _id: { type: String, required: true },
+    name: { type: String, required: true },
+    description: { type: String, required: true },
+    category: {
+        type: String,
+        enum: ['worldbuilding', 'character', 'plot', 'location', 'system', 'custom'],
+        required: true
+    },
+    tags: [{ type: String }],
+    cards: [{
+        _id: { type: String, required: true },
+        type: {
+            type: String,
+            enum: ['note', 'character', 'location', 'plot', 'item'],
+            required: true
+        },
+        x: { type: Number, required: true },
+        y: { type: Number, required: true },
+        content: { type: String, required: true },
+        title: { type: String },
+        tags: [{ type: String }]
+    }],
+    connections: [{
+        _id: { type: String, required: true },
+        fromCardId: { type: String, required: true },
+        toCardId: { type: String, required: true },
+        label: { type: String },
+        type: {
+            type: String,
+            enum: ['relationship', 'dependency', 'timeline', 'custom'],
+            required: true
+        },
+        color: { type: String }
+    }],
+    thumbnail: { type: String },
+    createdBy: { type: String, required: true },
+    isPublic: { type: Boolean, default: false },
+    usageCount: { type: Number, default: 0 },
+    rating: { type: Number, default: 0 },
+    createdAt: { type: String, required: true },
+    updatedAt: { type: String, required: true }
+});
+
+// Create Models
 const Board = mongoose.model('Board', BoardSchema);
 const Card = mongoose.model('Card', CardSchema);
 const Connection = mongoose.model('Connection', ConnectionSchema);
 const Comment = mongoose.model('Comment', CommentSchema);
 const User = mongoose.model('User', UserSchema);
+const Profile = mongoose.model('Profile', ProfileSchema);
+const Template = mongoose.model('Template', TemplateSchema);
 
 // Auth middleware
 const authenticateToken = (req, res, next) => {
@@ -228,6 +339,24 @@ app.post('/auth/register', async (req, res) => {
         });
 
         await user.save();
+
+        // Create profile for the user
+        const profile = new Profile({
+            userId: user._id,
+            displayName: name,
+            preferences: {
+                theme: 'system',
+                notifications: true,
+                language: 'en'
+            },
+            stats: {
+                worldsCreated: 0,
+                charactersCreated: 0,
+                totalCards: 0,
+                joinedDate: new Date()
+            }
+        });
+        await profile.save();
 
         // Generate token
         const token = jwt.sign(
@@ -370,7 +499,381 @@ app.put('/auth/profile', authenticateToken, async (req, res) => {
     }
 });
 
-// Boards routes
+// ========== PROFILE ROUTES ==========
+
+// Get profile by user ID
+app.get('/api/profile/:userId', authenticateToken, async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const profile = await Profile.findOne({ userId });
+
+        if (!profile) {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
+
+        res.json(profile);
+    } catch (error) {
+        console.error('Get profile error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Get current user's profile
+app.get('/api/profile/me', authenticateToken, async (req, res) => {
+    try {
+        let profile = await Profile.findOne({ userId: req.user.userId });
+
+        if (!profile) {
+            // Create profile if it doesn't exist
+            const user = await User.findOne({ _id: req.user.userId });
+            profile = new Profile({
+                userId: req.user.userId,
+                displayName: user?.name || '',
+                preferences: {
+                    theme: 'system',
+                    notifications: true,
+                    language: 'en'
+                },
+                stats: {
+                    worldsCreated: 0,
+                    charactersCreated: 0,
+                    totalCards: 0,
+                    joinedDate: new Date()
+                }
+            });
+            await profile.save();
+        }
+
+        res.json(profile);
+    } catch (error) {
+        console.error('Get my profile error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Update profile
+app.put('/api/profile/:userId', authenticateToken, async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Check if user owns this profile
+        if (userId !== req.user.userId) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const updateData = {
+            ...req.body,
+            updatedAt: new Date()
+        };
+
+        const profile = await Profile.findOneAndUpdate(
+            { userId },
+            updateData,
+            { new: true, runValidators: true }
+        );
+
+        if (!profile) {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
+
+        res.json(profile);
+    } catch (error) {
+        console.error('Update profile error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Update profile preferences
+app.put('/api/profile/:userId/preferences', authenticateToken, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { preferences } = req.body;
+
+        if (userId !== req.user.userId) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const profile = await Profile.findOneAndUpdate(
+            { userId },
+            { preferences, updatedAt: new Date() },
+            { new: true, runValidators: true }
+        );
+
+        if (!profile) {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
+
+        res.json(profile);
+    } catch (error) {
+        console.error('Update preferences error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ========== TEMPLATE ROUTES ==========
+
+// Get all templates
+app.get('/templates', authenticateToken, async (req, res) => {
+    try {
+        const { category, search } = req.query;
+
+        let query = {
+            $or: [
+                { isPublic: true },
+                { createdBy: req.user.userId }
+            ]
+        };
+
+        if (category && category !== 'all') {
+            query.category = category;
+        }
+
+        if (search) {
+            query.$and = [
+                query,
+                {
+                    $or: [
+                        { name: { $regex: search, $options: 'i' } },
+                        { description: { $regex: search, $options: 'i' } },
+                        { tags: { $in: [new RegExp(search, 'i')] } }
+                    ]
+                }
+            ];
+        }
+
+        const templates = await Template.find(query)
+            .sort({ usageCount: -1, rating: -1, createdAt: -1 });
+
+        res.json(templates);
+    } catch (error) {
+        console.error('Failed to fetch templates:', error);
+        res.status(500).json({ error: 'Failed to fetch templates' });
+    }
+});
+
+// Get single template
+app.get('/templates/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const template = await Template.findOne({
+            _id: id,
+            $or: [
+                { isPublic: true },
+                { createdBy: req.user.userId }
+            ]
+        });
+
+        if (!template) {
+            return res.status(404).json({ error: 'Template not found' });
+        }
+
+        res.json(template);
+    } catch (error) {
+        console.error('Failed to fetch template:', error);
+        res.status(500).json({ error: 'Failed to fetch template' });
+    }
+});
+
+// Create template
+app.post('/templates', authenticateToken, async (req, res) => {
+    try {
+        const templateData = req.body;
+
+        if (!templateData.name || !templateData.category) {
+            return res.status(400).json({ error: 'Name and category are required' });
+        }
+
+        const template = new Template({
+            _id: `template-${Date.now()}`,
+            ...templateData,
+            createdBy: req.user.userId,
+            usageCount: 0,
+            rating: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        });
+
+        await template.save();
+
+        console.log(`✅ Template created: ${template._id} by user: ${req.user.userId}`);
+        res.status(201).json(template);
+    } catch (error) {
+        console.error('Failed to create template:', error);
+        res.status(500).json({ error: 'Failed to create template' });
+    }
+});
+
+// Update template
+app.put('/templates/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Check if user owns this template
+        const existingTemplate = await Template.findOne({ _id: id });
+        if (!existingTemplate) {
+            return res.status(404).json({ error: 'Template not found' });
+        }
+
+        if (existingTemplate.createdBy !== req.user.userId) {
+            return res.status(403).json({ error: 'No permission to edit this template' });
+        }
+
+        const template = await Template.findOneAndUpdate(
+            { _id: id },
+            { ...req.body, updatedAt: new Date().toISOString() },
+            { new: true, runValidators: true }
+        );
+
+        console.log(`✅ Template updated: ${id} by user: ${req.user.userId}`);
+        res.json(template);
+    } catch (error) {
+        console.error('Failed to update template:', error);
+        res.status(500).json({ error: 'Failed to update template' });
+    }
+});
+
+// Delete template
+app.delete('/templates/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Check if user owns this template
+        const existingTemplate = await Template.findOne({ _id: id });
+        if (!existingTemplate) {
+            return res.status(404).json({ error: 'Template not found' });
+        }
+
+        if (existingTemplate.createdBy !== req.user.userId) {
+            return res.status(403).json({ error: 'No permission to delete this template' });
+        }
+
+        await Template.deleteOne({ _id: id });
+
+        console.log(`✅ Template deleted: ${id} by user: ${req.user.userId}`);
+        res.json({ success: true, message: 'Template deleted successfully' });
+    } catch (error) {
+        console.error('Failed to delete template:', error);
+        res.status(500).json({ error: 'Failed to delete template' });
+    }
+});
+
+// Apply template to board
+app.post('/templates/:id/apply', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { boardId } = req.body;
+
+        if (!boardId) {
+            return res.status(400).json({ error: 'Board ID is required' });
+        }
+
+        // Get template
+        const template = await Template.findOne({
+            _id: id,
+            $or: [
+                { isPublic: true },
+                { createdBy: req.user.userId }
+            ]
+        });
+
+        if (!template) {
+            return res.status(404).json({ error: 'Template not found' });
+        }
+
+        // Check if user has permission to edit the board
+        const board = await Board.findOne({
+            _id: boardId,
+            $or: [
+                { 'permissions.userId': req.user.userId, 'permissions.role': { $in: ['owner', 'editor'] } },
+                { createdBy: req.user.userId }
+            ]
+        });
+
+        if (!board) {
+            return res.status(403).json({ error: 'No permission to edit this board' });
+        }
+
+        // Create cards from template
+        const cardPromises = template.cards.map(cardTemplate => {
+            const card = new Card({
+                ...cardTemplate,
+                boardId: boardId,
+                createdBy: req.user.userId,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            });
+            return card.save();
+        });
+
+        // Create connections from template
+        const connectionPromises = template.connections.map(connTemplate => {
+            const connection = new Connection({
+                ...connTemplate,
+                boardId: boardId,
+                createdBy: req.user.userId
+            });
+            return connection.save();
+        });
+
+        await Promise.all([...cardPromises, ...connectionPromises]);
+
+        // Increment template usage count
+        await Template.findOneAndUpdate(
+            { _id: id },
+            { $inc: { usageCount: 1 } }
+        );
+
+        console.log(`✅ Template applied: ${id} to board: ${boardId} by user: ${req.user.userId}`);
+        res.json({ success: true, message: 'Template applied successfully' });
+    } catch (error) {
+        console.error('Failed to apply template:', error);
+        res.status(500).json({ error: 'Failed to apply template' });
+    }
+});
+
+// Rate template
+app.post('/templates/:id/rate', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { rating } = req.body;
+
+        if (rating < 1 || rating > 5) {
+            return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+        }
+
+        // Get template
+        const template = await Template.findOne({
+            _id: id,
+            $or: [
+                { isPublic: true },
+                { createdBy: req.user.userId }
+            ]
+        });
+
+        if (!template) {
+            return res.status(404).json({ error: 'Template not found' });
+        }
+
+        // Calculate new rating
+        const newRating = ((template.rating * template.usageCount) + rating) / (template.usageCount + 1);
+
+        const updatedTemplate = await Template.findOneAndUpdate(
+            { _id: id },
+            { rating: newRating },
+            { new: true }
+        );
+
+        res.json({ success: true, newRating: updatedTemplate.rating });
+    } catch (error) {
+        console.error('Failed to rate template:', error);
+        res.status(500).json({ error: 'Failed to rate template' });
+    }
+});
+
+// ========== BOARD ROUTES ==========
+
 app.get('/boards', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.userId;
@@ -582,7 +1085,8 @@ app.post('/boards/:id/import', authenticateToken, async (req, res) => {
     }
 });
 
-// Cards routes
+// ========== CARD ROUTES ==========
+
 app.post('/cards', authenticateToken, async (req, res) => {
     try {
         const cardData = req.body;
@@ -695,7 +1199,8 @@ app.delete('/cards/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Connections routes
+// ========== CONNECTION ROUTES ==========
+
 app.post('/connections', authenticateToken, async (req, res) => {
     try {
         const connectionData = req.body;
@@ -824,7 +1329,8 @@ app.delete('/connections/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Comments routes
+// ========== COMMENT ROUTES ==========
+
 app.post('/comments', authenticateToken, async (req, res) => {
     try {
         const commentData = req.body;
@@ -989,56 +1495,6 @@ app.get('/cards/:cardId/comments', authenticateToken, async (req, res) => {
     }
 });
 
-
-// GET /api/profile/:userId
-router.get('/:userId', auth, async (req, res) => {
-    try {
-        const profile = await Profile.findOne({ userId: req.params.userId });
-        if (!profile) {
-            return res.status(404).json({ error: 'Profile not found' });
-        }
-        res.json(profile);
-    } catch (error) {
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// PUT /api/profile/:userId
-router.put('/:userId', auth, async (req, res) => {
-    try {
-        // Check if user owns this profile
-        if (req.params.userId !== req.user.userId) {
-            return res.status(403).json({ error: 'Access denied' });
-        }
-
-        const profile = await Profile.findOneAndUpdate(
-            { userId: req.params.userId },
-            {
-                ...req.body,
-                updatedAt: new Date()
-            },
-            { new: true, upsert: true }
-        );
-
-        res.json(profile);
-    } catch (error) {
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// POST /api/profile/:userId/avatar
-router.post('/:userId/avatar', auth, async (req, res) => {
-    try {
-        // Handle file upload here (using multer or similar)
-        // This is a simplified example
-        const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-
-        res.json({ avatarUrl });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to upload avatar' });
-    }
-});
-
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Unhandled error:', err);
@@ -1059,6 +1515,8 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`📊 MongoDB: ${MONGODB_URI.includes('@') ? 'Connected to MongoDB Atlas' : MONGODB_URI}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔐 Authentication: Enabled`);
+    console.log(`👤 Profile System: Enabled`);
+    console.log(`📚 Template System: Enabled`);
     console.log(`❤️  Health check: http://localhost:${PORT}/health`);
 });
 

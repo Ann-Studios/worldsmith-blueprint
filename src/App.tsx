@@ -7,9 +7,10 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from '@/hooks/useAuth';
-import { OnboardingProvider } from '@/contexts/OnboardingContext'; // Add this import
-import { OnboardingManager } from '@/components/onboarding/OnboardingManager'; // Add this import
+import { OnboardingProvider } from '@/contexts/OnboardingContext';
+import { OnboardingManager } from '@/components/onboarding/OnboardingManager';
 import { Profile } from './pages/Profile';
+import TemplateLibraryPage from './pages/TemplateLibraryPage';
 
 const queryClient = new QueryClient();
 
@@ -20,17 +21,16 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          {/* Wrap with OnboardingProvider */}
           <OnboardingProvider>
             <Routes>
               <Route path="/" element={
                 <>
                   <Index />
-                  {/* Add OnboardingManager to your main page */}
                   <OnboardingManager />
                 </>
               } />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/templates" element={<TemplateLibraryPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
