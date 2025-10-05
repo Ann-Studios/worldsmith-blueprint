@@ -37,15 +37,14 @@ if (!MONGODB_URI) {
     process.exit(1);
 }
 
-// MongoDB connection options
+// Updated MongoDB connection options for modern Mongoose
 const mongooseOptions = {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
+    // These are the only supported options in newer versions
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
-    bufferCommands: false,
-    bufferMaxEntries: 0
 };
+
+console.log('🔗 Connecting to MongoDB...');
 
 mongoose.connect(MONGODB_URI, mongooseOptions)
     .then(() => console.log('✅ Connected to MongoDB'))
