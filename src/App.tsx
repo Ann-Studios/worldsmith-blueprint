@@ -23,17 +23,13 @@ const App = () => (
         <AuthProvider>
           <OnboardingProvider>
             <Routes>
-              <Route path="/" element={
-                <>
-                  <Index />
-                  <OnboardingManager />
-                </>
-              } />
+              <Route path="/" element={<Index />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/templates" element={<TemplateLibraryPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <OnboardingManager />
           </OnboardingProvider>
         </AuthProvider>
       </BrowserRouter>

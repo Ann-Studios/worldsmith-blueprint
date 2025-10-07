@@ -1,6 +1,8 @@
 // components/onboarding/OnboardingManager.tsx
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useAuth } from '@/hooks/useAuth';
 import { OnboardingTooltip } from './OnboardingTooltip';
 import { CanvasStep } from './steps/CanvasStep';
 import { ToolbarStep } from './steps/ToolbarStep';
@@ -9,9 +11,16 @@ import { WelcomeStep } from './steps/WelcomeStep';
 
 export const OnboardingManager: React.FC = () => {
     const { state, startOnboarding } = useOnboarding();
+    const { isAuthenticated } = useAuth();
+    const location = useLocation();
+
+    // Only show onboarding on the main canvas page when authenticated
+    const shouldShowOnboarding = isAuthenticated && location.pathname === '/';
 
     // Auto-start onboarding for new users
     React.useEffect(() => {
+        if (!shouldShowOnboarding) return;
+        
         const hasSeenOnboarding = localStorage.getItem('worldsmith-onboarding');
         if (!hasSeenOnboarding) {
             // Define onboarding steps
@@ -48,13 +57,13 @@ export const OnboardingManager: React.FC = () => {
                     targetElement: '.card-editor',
                 },
             ];
-
+            
             // Delay slightly to let the app load
             setTimeout(() => {
                 startOnboarding(onboardingSteps);
             }, 1000);
         }
-    }, [startOnboarding]);
+    }, [startOnboarding, shouldShowOnboarding]);
 
     return <OnboardingTooltip>{null}</OnboardingTooltip>;
 };
