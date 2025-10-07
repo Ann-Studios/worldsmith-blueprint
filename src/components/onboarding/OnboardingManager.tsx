@@ -15,12 +15,12 @@ export const OnboardingManager: React.FC = () => {
     const location = useLocation();
 
     // Only show onboarding on the main canvas page when authenticated
-    const shouldShowOnboarding = isAuthenticated && location.pathname === '/';
+    const shouldShowOnboarding = isAuthenticated && location.pathname === '/app';
 
     // Auto-start onboarding for new users
     React.useEffect(() => {
         if (!shouldShowOnboarding) return;
-        
+
         const hasSeenOnboarding = localStorage.getItem('worldsmith-onboarding');
         if (!hasSeenOnboarding) {
             // Define onboarding steps
@@ -57,7 +57,7 @@ export const OnboardingManager: React.FC = () => {
                     targetElement: '.card-editor',
                 },
             ];
-            
+
             // Delay slightly to let the app load
             setTimeout(() => {
                 startOnboarding(onboardingSteps);

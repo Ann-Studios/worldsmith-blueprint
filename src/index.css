@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -19,7 +21,7 @@ All colors MUST be HSL.
 
     --primary: 330 80% 60%;
     --primary-foreground: 0 0% 100%;
-    
+
     --primary-glow: 340 90% 75%;
 
     --secondary: 180 70% 45%;
@@ -30,7 +32,7 @@ All colors MUST be HSL.
 
     --accent: 270 80% 60%;
     --accent-foreground: 0 0% 100%;
-    
+
     --item: 30 100% 60%;
     --item-foreground: 0 0% 100%;
 
@@ -42,17 +44,29 @@ All colors MUST be HSL.
     --ring: 260 85% 58%;
 
     --radius: 0.75rem;
-    
+
     --canvas-bg: 248 55% 96%;
-    
+
+    /* Brand Colors */
+    --brand-green: 120 100% 70%;
+    /* #82F683 */
+    --brand-black: 0 0% 0%;
+    /* #000000 */
+    --brand-dark-green: 120 30% 15%;
+    /* #122B14 */
+    --brand-teal: 170 50% 40%;
+    /* #2E9981 */
+    --brand-olive: 60 20% 30%;
+    /* Dark olive green */
+
     --gradient-primary: linear-gradient(135deg, hsl(260 85% 58%), hsl(280 70% 50%));
     --gradient-accent: linear-gradient(135deg, hsl(30 100% 65%), hsl(15 100% 60%));
     --gradient-canvas: linear-gradient(180deg, hsl(248 55% 96%), hsl(245 60% 94%));
-    
+
     --shadow-card: 0 2px 8px hsl(250 40% 20% / 0.06);
     --shadow-card-hover: 0 8px 24px hsl(250 40% 20% / 0.12);
     --shadow-glow: 0 0 20px hsl(260 85% 58% / 0.15);
-    
+
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     --sidebar-background: 0 0% 98%;
@@ -77,7 +91,7 @@ All colors MUST be HSL.
 
     --primary: 330 80% 65%;
     --primary-foreground: 0 0% 100%;
-    
+
     --primary-glow: 340 90% 75%;
 
     --secondary: 168 54% 45%;
@@ -88,7 +102,7 @@ All colors MUST be HSL.
 
     --accent: 270 80% 65%;
     --accent-foreground: 0 0% 100%;
-    
+
     --item: 30 100% 65%;
     --item-foreground: 0 0% 100%;
 
@@ -98,9 +112,9 @@ All colors MUST be HSL.
     --border: 145 40% 20%;
     --input: 145 40% 20%;
     --ring: 168 54% 45%;
-    
+
     --canvas-bg: 145 45% 10%;
-    
+
     --gradient-canvas: linear-gradient(180deg, hsl(145 45% 10%), hsl(145 50% 8%));
     --shadow-card: 0 2px 8px hsl(0 0% 0% / 0.4);
     --shadow-card-hover: 0 8px 24px hsl(0 0% 0% / 0.6);
@@ -123,6 +137,49 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter Tight', sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-brand {
+    font-family: 'Bricolage Grotesque', sans-serif;
+  }
+
+  .font-body {
+    font-family: 'Inter Tight', sans-serif;
+  }
+
+  .text-brand-green {
+    color: hsl(var(--brand-green));
+  }
+
+  .bg-brand-green {
+    background-color: hsl(var(--brand-green));
+  }
+
+  .text-brand-black {
+    color: hsl(var(--brand-black));
+  }
+
+  .bg-brand-black {
+    background-color: hsl(var(--brand-black));
+  }
+
+  .text-brand-teal {
+    color: hsl(var(--brand-teal));
+  }
+
+  .bg-brand-teal {
+    background-color: hsl(var(--brand-teal));
+  }
+
+  .text-brand-dark-green {
+    color: hsl(var(--brand-dark-green));
+  }
+
+  .bg-brand-dark-green {
+    background-color: hsl(var(--brand-dark-green));
   }
 }
 

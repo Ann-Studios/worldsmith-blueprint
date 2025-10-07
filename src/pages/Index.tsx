@@ -1,10 +1,18 @@
 // pages/Index.tsx
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { LoginForm } from '@/components/LoginForm';
 import { Canvas } from '@/components/Canvas';
 
 const Index = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   if (isLoading) {
     return (
@@ -15,7 +23,7 @@ const Index = () => {
   }
 
   if (!isAuthenticated) {
-    return <LoginForm />;
+    return null; // Will redirect to login
   }
 
   return <Canvas />;
