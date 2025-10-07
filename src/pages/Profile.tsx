@@ -1,8 +1,8 @@
 // pages/Profile.tsx
 import React, { useEffect } from 'react';
 import { useProfile } from '@/hooks/useProfile';
-import { ProfileForm } from '../components/profile/ProfileForm';
-import { ProfileStats } from '@/components/profile/ProfileStats';
+import { ProfileForm } from '@/components/Profile/ProfileForm';
+import { ProfileStats } from '@/components/Profile/ProfileStats';
 import { Button } from '@/components/ui/button';
 
 export const Profile: React.FC = () => {
