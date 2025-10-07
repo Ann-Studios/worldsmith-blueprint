@@ -1,4 +1,4 @@
-import { TemplateLibrary } from '@/components/templates/TemplateLibrary';
+import { TemplateLibrary } from '@/components/Templates/TemplateLibrary';
 
 
 // Template Library Page Component
