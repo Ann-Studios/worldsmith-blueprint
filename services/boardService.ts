@@ -1,4 +1,4 @@
-import { Board } from '../src/models/Board';
+import { Board, IBoard, IPermission } from '../src/models/Board';
 import { Card } from '../src/models/Card';
 import { Connection } from '../src/models/Connection';
 import { Comment } from '../src/models/Comment';
@@ -45,7 +45,7 @@ export class BoardService {
   }
 
   // Create a new board
-  static async createBoard(boardData: any, userId: string) {
+  static async createBoard(boardData: Partial<IBoard>, userId: string) {
     const board = new Board({
       ...boardData,
       createdBy: userId,
@@ -61,7 +61,7 @@ export class BoardService {
   }
 
   // Update board permissions
-  static async updateBoardPermissions(boardId: string, permissions: any[], userId: string) {
+  static async updateBoardPermissions(boardId: string, permissions: IPermission[], userId: string) {
     const board = await Board.findOne({
       _id: boardId,
       createdBy: userId // Only owner can update permissions

@@ -35,7 +35,7 @@ export const TemplateLibrary: React.FC<TemplateLibraryProps> = ({
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+    const [selectedTemplate, setSelectedTemplate] = useState<{ _id: string; name: string; description: string; category: string; cards: unknown[] } | null>(null);
     const [showPreview, setShowPreview] = useState(false);
 
     useEffect(() => {
@@ -57,7 +57,7 @@ export const TemplateLibrary: React.FC<TemplateLibraryProps> = ({
         }
     };
 
-    const handlePreviewTemplate = (template: any) => {
+    const handlePreviewTemplate = (template: { _id: string; name: string; description: string; category: string; cards: unknown[] }) => {
         setSelectedTemplate(template);
         setShowPreview(true);
     };

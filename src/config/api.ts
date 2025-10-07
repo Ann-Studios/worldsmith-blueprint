@@ -23,7 +23,7 @@ export const api = {
     return handleResponse(response);
   },
 
-  post: async (endpoint: string, data?: any) => {
+  post: async (endpoint: string, data?: unknown) => {
     const token = localStorage.getItem('auth_token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
@@ -36,7 +36,7 @@ export const api = {
     return handleResponse(response);
   },
 
-  put: async (endpoint: string, data?: any) => {
+  put: async (endpoint: string, data?: unknown) => {
     const token = localStorage.getItem('auth_token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PUT',

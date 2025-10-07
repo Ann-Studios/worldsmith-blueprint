@@ -3,8 +3,8 @@ export interface OnboardingStep {
   id: string;
   title: string;
   description: string;
-  component: React.ComponentType<any>;
-  props?: any;
+  component: React.ComponentType<Record<string, unknown>>;
+  props?: Record<string, unknown>;
   position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
   targetElement?: string; // CSS selector for element to highlight
 }

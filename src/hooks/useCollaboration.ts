@@ -19,7 +19,7 @@ export const useCollaboration = (boardId: string, currentUserId: string) => {
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
-        const users = Object.values(state).flat().map((presence: any) => ({
+        const users = Object.values(state).flat().map((presence: { user: { id: string; name: string; email: string; avatar?: string; role: string }; cursor?: { x: number; y: number }; currentCard?: string }) => ({
           id: presence.user.id,
           name: presence.user.name,
           email: presence.user.email,

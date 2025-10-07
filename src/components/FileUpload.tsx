@@ -5,7 +5,7 @@ import { api } from "@/config/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface FileUploadProps {
-    onUploadComplete: (attachment: any) => void;
+    onUploadComplete: (attachment: { id: string; filename: string; type: string; size: number; url: string }) => void;
     cardId: string;
 }
 

@@ -20,8 +20,8 @@ export const useProfile = () => {
       const profileData = await api.get(`/profile/${targetUserId}`);
       setProfile(profileData);
       return profileData;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to fetch profile';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch profile';
       setError(errorMessage);
       throw err;
     } finally {
@@ -38,8 +38,8 @@ export const useProfile = () => {
       const updatedProfile = await api.put(`/profile/${user._id}`, updateData);
       setProfile(updatedProfile);
       return updatedProfile;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to update profile';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update profile';
       setError(errorMessage);
       throw err;
     } finally {
@@ -73,8 +73,8 @@ export const useProfile = () => {
       // Update profile with new avatar
       const updatedProfile = await updateProfile({ avatar: avatarUrl });
       return updatedProfile;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to upload avatar';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to upload avatar';
       setError(errorMessage);
       throw err;
     } finally {

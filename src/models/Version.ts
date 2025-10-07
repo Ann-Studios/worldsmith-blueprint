@@ -5,7 +5,7 @@ export interface IVersion {
   boardId: string;
   versionNumber: number;
   description?: string;
-  snapshot: any; // Complete board state
+  snapshot: Record<string, unknown>; // Complete board state
   createdBy: string;
   createdAt: Date;
 }

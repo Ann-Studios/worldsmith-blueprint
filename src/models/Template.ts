@@ -5,7 +5,7 @@ export interface ITemplate {
   name: string;
   description?: string;
   category: string;
-  content: any; // Stores template structure
+  content: Record<string, unknown>; // Stores template structure
   isPublic: boolean;
   createdBy: string;
   usageCount: number;

@@ -69,8 +69,8 @@ export const useTemplates = () => {
       const templatesData = await api.get(url);
       setTemplates(templatesData);
       return templatesData;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to fetch templates';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch templates';
       setError(errorMessage);
       throw err;
     } finally {
@@ -84,8 +84,8 @@ export const useTemplates = () => {
     try {
       const template = await api.get(`/templates/${templateId}`);
       return template;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to fetch template';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch template';
       setError(errorMessage);
       throw err;
     } finally {
@@ -100,8 +100,8 @@ export const useTemplates = () => {
       const template = await api.post('/templates', templateData);
       setTemplates(prev => [template, ...prev]);
       return template;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to create template';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create template';
       setError(errorMessage);
       throw err;
     } finally {
@@ -116,8 +116,8 @@ export const useTemplates = () => {
       const template = await api.put(`/templates/${templateId}`, updates);
       setTemplates(prev => prev.map(t => t._id === templateId ? template : t));
       return template;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to update template';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update template';
       setError(errorMessage);
       throw err;
     } finally {
@@ -131,8 +131,8 @@ export const useTemplates = () => {
     try {
       await api.delete(`/templates/${templateId}`);
       setTemplates(prev => prev.filter(t => t._id !== templateId));
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to delete template';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete template';
       setError(errorMessage);
       throw err;
     } finally {
@@ -146,8 +146,8 @@ export const useTemplates = () => {
     try {
       const result = await api.post(`/templates/${templateId}/apply`, { boardId });
       return result;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to apply template';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to apply template';
       setError(errorMessage);
       throw err;
     } finally {
@@ -162,8 +162,8 @@ export const useTemplates = () => {
         t._id === templateId ? { ...t, rating: result.newRating } : t
       ));
       return result;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to rate template';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to rate template';
       setError(errorMessage);
       throw err;
     }

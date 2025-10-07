@@ -5,7 +5,7 @@ export class CollaborationServer {
   private wss: WebSocket.Server;
   private connections: Map<string, WebSocket> = new Map();
 
-  constructor(server: any) {
+  constructor(server: { listen: (port: number) => void }) {
     this.wss = new WebSocket.Server({ server });
     this.setupWebSocket();
   }
@@ -47,7 +47,7 @@ export class CollaborationServer {
     });
   }
 
-  private async handleCursorMove(userId: string, payload: any) {
+  private async handleCursorMove(userId: string, payload: { boardId: string; x: number; y: number }) {
     await Presence.findOneAndUpdate(
       { userId, boardId: payload.boardId },
       {
@@ -65,7 +65,7 @@ export class CollaborationServer {
     }, userId);
   }
 
-  private broadcastToBoard(boardId: string, message: any, excludeUserId?: string) {
+  private broadcastToBoard(boardId: string, message: { type: string; payload: unknown }, excludeUserId?: string) {
     this.connections.forEach((ws, userId) => {
       if (userId !== excludeUserId) {
         ws.send(JSON.stringify(message));

@@ -159,7 +159,7 @@ profileSchema.methods.incrementStat = async function(statField: keyof IStats, in
   const statPath = `stats.${statField}`;
   
   if (this.schema.path(statPath)) {
-    (this.stats as any)[statField] += increment;
+    (this.stats as Record<string, number>)[statField] += increment;
     await this.save();
   }
 };

@@ -54,11 +54,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const userData = await api.post('/auth/login', { email, password });
       localStorage.setItem('auth_token', userData.token);
       setUser(userData.user);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
-      if (error.message.includes('400') || error.message.includes('401')) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('400') || errorMessage.includes('401')) {
         throw new Error('Invalid email or password');
-      } else if (error.message.includes('500')) {
+      } else if (errorMessage.includes('500')) {
         throw new Error('Server error. Please try again later.');
       } else {
         throw new Error('Login failed. Please check your connection.');
@@ -74,11 +75,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const userData = await api.post('/auth/register', { name, email, password });
       localStorage.setItem('auth_token', userData.token);
       setUser(userData.user);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Registration error:', error);
-      if (error.message.includes('User already exists')) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('User already exists')) {
         throw new Error('An account with this email already exists. Please login instead.');
-      } else if (error.message.includes('400')) {
+      } else if (errorMessage.includes('400')) {
         throw new Error('Please check your information and try again.');
       } else {
         throw new Error('Registration failed. Please try again.');
