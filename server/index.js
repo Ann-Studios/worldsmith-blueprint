@@ -16,15 +16,48 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT;
 
-// Middleware
+// CORS configuration
+const allowedOrigins = [
+    process.env.CLIENT_URL,
+    process.env.VERCEL_FRONTEND_URL,
+    'http://localhost:8080',
+    'http://localhost:3000',
+    process.env.RENDER_BACKEND_URL
+].filter(Boolean);
+
+console.log('🔐 Allowed CORS origins:', allowedOrigins);
+
+// Middleware - Updated CORS configuration
 app.use(cors({
-    origin: [
-        process.env.CLIENT_URL,
-        'http://localhost:8080',
-        'https://worldsmith-blueprint.onrender.com'
-    ].filter(Boolean),
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps, Postman, etc.)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            console.log('🚫 CORS blocked for origin:', origin);
+            callback(new Error(`Origin ${origin} not allowed by CORS`));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// Explicitly handle preflight requests
+app.options('*', cors({
+    origin: function (origin, callback) {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 }));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -299,7 +332,8 @@ app.get('/health', (req, res) => {
         status: 'OK',
         timestamp: new Date().toISOString(),
         mongodb: mongoStatus,
-        environment: process.env.NODE_ENV || 'development'
+        environment: process.env.NODE_ENV || 'development',
+        allowedOrigins: allowedOrigins
     });
 });
 
@@ -1517,6 +1551,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🔐 Authentication: Enabled`);
     console.log(`👤 Profile System: Enabled`);
     console.log(`📚 Template System: Enabled`);
+    console.log(`🔐 CORS: Enabled for origins:`, allowedOrigins);
     console.log(`❤️  Health check: http://localhost:${PORT}/health`);
 });
 
