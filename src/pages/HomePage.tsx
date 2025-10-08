@@ -243,8 +243,14 @@ export const HomePage: React.FC = () => {
                             </div>
                             <span className="text-2xl font-brand font-bold">worldsmith</span>
                         </div>
+                        <div className="flex items-center space-x-3 font-body">
+                            <Link to="/privacy">Privacy Policy</Link>
+                            <Link to="/terms">Terms of Service</Link>
+                            <Link to="/contact">Contact</Link>
+                            <Link to="/support">Support</Link>
+                        </div>
                         <div className="text-gray-400 font-body">
-                            © 2024 WorldSmith. All rights reserved.
+                            © 2025 WorldSmith. All rights reserved.
                         </div>
                     </div>
                 </div>

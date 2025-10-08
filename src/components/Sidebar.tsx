@@ -30,7 +30,7 @@ export const Sidebar = ({ isOpen, onToggle, onClear, onExport, onImport, onSave 
           <div className="border-b flex flex-col gap-3 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <img src={worldsmithLogo} alt="WorldSmith Logo" className="h-6" />
+                <img src={worldsmithLogo} alt="WorldSmith Logo" className="h-6" onClick={() => window.location.href = '/'} />
               </div>
               <div className="flex items-center gap-1">
                 <ThemeToggle />
