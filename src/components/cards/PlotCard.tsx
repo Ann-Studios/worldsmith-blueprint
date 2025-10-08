@@ -1,8 +1,9 @@
-import { Trash2, BookOpen } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { CanvasCard } from "../Canvas";
+import worldsmithLogo from '@/assets/worldsmith-logo.png';
 
 interface PlotCardProps {
   card: CanvasCard;
@@ -16,7 +17,7 @@ export const PlotCard = ({ card, onUpdate, onDelete }: PlotCardProps) => {
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
-            <BookOpen className="w-4 h-4 text-accent-foreground" />
+            <img src={worldsmithLogo} alt="WorldSmith Logo" className="w-4 h-4" />
           </div>
           <Input
             value={card.title || ""}

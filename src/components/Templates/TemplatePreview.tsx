@@ -4,7 +4,7 @@ import { Template } from '@/types/Template';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { X, Download, Star, Users } from 'lucide-react';
-
+import { ThemeToggle } from '../ThemeToggle';
 interface TemplatePreviewProps {
     template: Template;
     onClose: () => void;
@@ -28,6 +28,7 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({
                     <Button variant="ghost" size="sm" onClick={onClose}>
                         <X className="h-4 w-4" />
                     </Button>
+                    <ThemeToggle />
                 </div>
 
                 {/* Content */}
