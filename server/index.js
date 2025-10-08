@@ -196,7 +196,7 @@ const ProfileSchema = new mongoose.Schema({
     bio: {
         type: String,
         trim: true,
-        maxlength: 500
+        maxlength: 1000
     },
     avatar: {
         type: String,
