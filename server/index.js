@@ -26,7 +26,11 @@ const allowedOrigins = [
     process.env.VERCEL_FRONTEND_URL,
     'http://localhost:8080',
     'http://localhost:3000',
-    process.env.RENDER_BACKEND_URL
+    'http://localhost:5173',
+    process.env.RENDER_BACKEND_URL,
+    // Add Render frontend URLs
+    'https://worldsmith-frontend.onrender.com',
+    'https://worldsmith-blueprint.onrender.com'
 ].filter(Boolean);
 
 console.log('🔐 Allowed CORS origins:', allowedOrigins);
@@ -1706,8 +1710,12 @@ wss.on('connection', (ws, req) => {
 
 // Start server
 server.listen(PORT, '0.0.0.0', () => {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const wsProtocol = isProduction ? 'wss' : 'ws';
+    const wsHost = isProduction ? process.env.RENDER_EXTERNAL_URL?.replace('https://', '') : `localhost:${PORT}`;
+
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🔌 WebSocket server running on ws://localhost:${PORT}`);
+    console.log(`🔌 WebSocket server running on ${wsProtocol}://${wsHost}`);
     console.log(`📊 MongoDB: ${MONGODB_URI.includes('@') ? 'Connected to MongoDB Atlas' : MONGODB_URI}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔐 Authentication: Enabled`);

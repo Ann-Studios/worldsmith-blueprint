@@ -1,90 +1,77 @@
-# 🚀 Frontend Deployment Guide
+# Deployment Guide for Render
 
-## Environment Variables Required
+## 🚀 Deploying WebSocket Server on Render
 
-Before deploying, you need to set up these environment variables:
+### **1. Server Deployment**
 
-### Required Variables:
-- `VITE_API_URL` - Your Render backend URL (e.g., `https://your-app.onrender.com`)
+1. **Create a new Web Service on Render:**
+   - Go to [render.com](https://render.com)
+   - Click "New +" → "Web Service"
+   - Connect your GitHub repository
 
-### Optional Variables (if using Supabase):
-- `VITE_SUPABASE_URL` - Your Supabase project URL
-- `VITE_SUPABASE_ANON_KEY` - Your Supabase anonymous key
+2. **Configure the service:**
+   - **Name:** `worldsmith-server`
+   - **Environment:** `Node`
+   - **Build Command:** `cd server && npm install`
+   - **Start Command:** `cd server && npm start`
+   - **Plan:** Free (or paid for better WebSocket support)
 
-## Deployment Options
-
-### Option 1: Vercel (Recommended)
-
-1. **Install Vercel CLI:**
-   ```bash
-   npm i -g vercel
+3. **Set Environment Variables:**
+   ```
+   NODE_ENV=production
+   MONGODB_URI=your_mongodb_connection_string
+   JWT_SECRET=your_jwt_secret
+   RESEND_API_KEY=your_resend_api_key
+   CLIENT_URL=https://your-frontend-url.onrender.com
    ```
 
-2. **Deploy:**
-   ```bash
-   vercel
+### **2. Frontend Deployment**
+
+1. **Create a Static Site on Render:**
+   - Click "New +" → "Static Site"
+   - Connect your GitHub repository
+
+2. **Configure the site:**
+   - **Build Command:** `npm run build`
+   - **Publish Directory:** `dist`
+
+3. **Set Environment Variables:**
+   ```
+   VITE_WS_URL=wss://your-server-name.onrender.com
+   VITE_API_URL=https://your-server-name.onrender.com
    ```
 
-3. **Set Environment Variables in Vercel Dashboard:**
-   - Go to your project settings
-   - Add `VITE_API_URL` with your Render backend URL
+### **3. Important Notes**
 
-### Option 2: Netlify
+⚠️ **Free Plan Limitations:**
+- WebSocket connections may disconnect after 5 minutes
+- Consider upgrading to paid plan for production use
 
-1. **Install Netlify CLI:**
-   ```bash
-   npm i -g netlify-cli
+✅ **WebSocket URLs:**
+- Use `wss://` (secure WebSocket) for production
+- Don't specify ports in the URL
+- Example: `wss://worldsmith-server.onrender.com`
+
+### **4. Testing Your Deployment**
+
+1. **Check server logs** in Render dashboard
+2. **Test WebSocket connection** in browser console:
+   ```javascript
+   const ws = new WebSocket('wss://your-server-name.onrender.com?userId=test&boardId=test');
+   ws.onopen = () => console.log('Connected!');
+   ws.onerror = (e) => console.error('Error:', e);
    ```
 
-2. **Deploy:**
-   ```bash
-   netlify deploy --prod --dir=dist
-   ```
+### **5. Troubleshooting**
 
-3. **Set Environment Variables in Netlify Dashboard:**
-   - Go to Site settings > Environment variables
-   - Add `VITE_API_URL` with your Render backend URL
+- **WebSocket not connecting:** Check if server is running and logs show WebSocket setup
+- **CORS errors:** Ensure `CLIENT_URL` environment variable is set correctly
+- **Connection drops:** This is normal on free plan; consider upgrading
 
-### Option 3: Render (Static Site)
+## 🔧 Local Development
 
-1. **Create new Static Site on Render**
-2. **Connect your GitHub repository**
-3. **Configure:**
-   - Build Command: `npm run build`
-   - Publish Directory: `dist`
-4. **Add Environment Variables:**
-   - `VITE_API_URL` = your Render backend URL
-
-### Option 4: GitHub Pages
-
-1. **Enable GitHub Pages in repository settings**
-2. **Push to main branch** (GitHub Actions will auto-deploy)
-3. **Set Environment Variables in GitHub:**
-   - Go to Settings > Secrets and variables > Actions
-   - Add `VITE_API_URL` as a repository secret
-
-## Quick Deploy Commands
-
-```bash
-# Build the project
-npm run build
-
-# Deploy to Vercel
-vercel
-
-# Deploy to Netlify
-netlify deploy --prod --dir=dist
-
-# Deploy to Render (via Git push)
-git add .
-git commit -m "Deploy frontend"
-git push origin main
+For local development, use:
 ```
-
-## Post-Deployment Checklist
-
-- [ ] Set `VITE_API_URL` environment variable
-- [ ] Test API connection
-- [ ] Verify authentication flow
-- [ ] Check all features work correctly
-- [ ] Update CORS settings on backend if needed
+VITE_WS_URL=ws://localhost:3001
+VITE_API_URL=http://localhost:3001
+```
