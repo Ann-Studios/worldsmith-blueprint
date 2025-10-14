@@ -28,9 +28,6 @@ const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:5173',
     process.env.RENDER_BACKEND_URL,
-    // Add Render frontend URLs
-    'https://worldsmith-frontend.onrender.com',
-    'https://worldsmith-blueprint.onrender.com'
 ].filter(Boolean);
 
 console.log('🔐 Allowed CORS origins:', allowedOrigins);
