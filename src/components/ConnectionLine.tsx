@@ -18,6 +18,8 @@ export interface ConnectionLineProps {
   cards: CanvasCard[];
   onDelete: (connectionId: string) => void;
   onUpdate: (connectionId: string, updates: Partial<Connection>) => void;
+  onSelect?: () => void;
+  isSelected?: boolean;
 }
 
 export const ConnectionLine: React.FC<ConnectionLineProps> = ({
@@ -25,6 +27,8 @@ export const ConnectionLine: React.FC<ConnectionLineProps> = ({
   cards,
   onDelete,
   onUpdate,
+  onSelect,
+  isSelected = false,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -64,6 +68,8 @@ export const ConnectionLine: React.FC<ConnectionLineProps> = ({
     e.stopPropagation();
     if (isHovered) {
       onDelete(connection._id);
+    } else {
+      onSelect?.();
     }
   };
 
@@ -76,10 +82,10 @@ export const ConnectionLine: React.FC<ConnectionLineProps> = ({
         x2={toX}
         y2={toY}
         stroke={getConnectionColor()}
-        strokeWidth={isHovered ? 3 : 2}
+        strokeWidth={isHovered ? 3 : isSelected ? 3 : 2}
         strokeDasharray={connection.type === "dependency" ? "5,5" : "none"}
         markerEnd="url(#arrowhead)"
-        className="cursor-pointer transition-all duration-200"
+        className={`cursor-pointer transition-all duration-200 ${isSelected ? 'opacity-80' : ''}`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={handleClick}

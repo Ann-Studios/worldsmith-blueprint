@@ -41,6 +41,8 @@ interface CollaborationUsersProps {
     onPermissionChange?: (userId: string, newRole: "editor" | "viewer") => void;
     onRemoveUser?: (userId: string) => void;
     onInviteUser?: (email: string, role: "editor" | "viewer") => void;
+    onNavigateToProfile?: (userId: string) => void;
+    isConnected?: boolean;
 }
 
 export const CollaborationUsers = ({
@@ -49,7 +51,9 @@ export const CollaborationUsers = ({
     currentUser,
     onPermissionChange,
     onRemoveUser,
-    onInviteUser
+    onInviteUser,
+    onNavigateToProfile,
+    isConnected = true
 }: CollaborationUsersProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const [showInviteDialog, setShowInviteDialog] = useState(false);
@@ -225,7 +229,14 @@ export const CollaborationUsers = ({
                 <div className="flex items-center -space-x-2">
                     {onlineUsers.slice(0, 3).map((user) => (
                         <div key={user.id} className="relative group">
-                            <Avatar className="w-8 h-8 border-2 border-background">
+                            <Avatar
+                                className={`w-8 h-8 border-2 border-background ${user.id === currentUser?.id ? 'cursor-pointer hover:ring-2 hover:ring-primary hover:ring-offset-2 transition-all' : ''}`}
+                                onClick={() => {
+                                    if (user.id === currentUser?.id && onNavigateToProfile) {
+                                        onNavigateToProfile(user.id);
+                                    }
+                                }}
+                            >
                                 <AvatarImage src={user.avatar} alt={user.name} />
                                 <AvatarFallback className="text-xs bg-primary text-primary-foreground">
                                     {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
@@ -234,19 +245,21 @@ export const CollaborationUsers = ({
                             <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-background rounded-full" />
 
                             {/* User tooltip */}
-                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-background border border-border text-foreground text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-[100] pointer-events-none">
                                 <div className="flex items-center gap-2">
-                                    <span>{user.name}</span>
+                                    <span className="font-medium">{user.name}</span>
                                     <Badge variant="outline" className={`text-xs ${getRoleColor(user.role)}`}>
                                         {getRoleIcon(user.role)}
                                         <span className="ml-1 capitalize">{user.role}</span>
                                     </Badge>
                                 </div>
                                 {user.currentCard && (
-                                    <div className="text-muted-foreground mt-1">
+                                    <div className="text-muted-foreground mt-1 text-xs">
                                         Editing: {user.currentCard}
                                     </div>
                                 )}
+                                {/* Tooltip arrow */}
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-border"></div>
                             </div>
                         </div>
                     ))}
@@ -266,6 +279,9 @@ export const CollaborationUsers = ({
                         <Button variant="outline" size="sm" className="flex items-center gap-2">
                             <Users className="w-4 h-4" />
                             <span>{onlineUsers.length} online</span>
+                            {!isConnected && (
+                                <div className="w-2 h-2 bg-red-500 rounded-full" title="Disconnected" />
+                            )}
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-64">

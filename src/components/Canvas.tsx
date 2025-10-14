@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { DndContext, DragEndEvent, useSensor, useSensors, PointerSensor, KeyboardSensor } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Card } from "./cards/Card";
@@ -10,7 +10,9 @@ import { BoardSelector } from "./BoardSelector";
 import { CollaborationUsers } from "./CollaborationUsers";
 import { CommentPanel } from "./CommentPanel";
 import { SearchPanel } from "./SearchPanel";
+import { ExportDialog } from "./ExportDialog";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import { api } from "@/config/api";
 import { useAuth } from '@/hooks/useAuth';
 
@@ -97,14 +99,21 @@ export const Canvas = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [connectionMode, setConnectionMode] = useState(false);
   const [selectedCardForConnection, setSelectedCardForConnection] = useState<string | null>(null);
+  const [selectedConnection, setSelectedConnection] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [commentPanelOpen, setCommentPanelOpen] = useState(false);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const { user, logout } = useAuth();
-  
+
+  // Initialize WebSocket collaboration
+  const { onlineUsers, isConnected, broadcastCursorMove, broadcastUserActivity, updatePresence } = useWebSocket(
+    currentBoard?._id || '',
+    user?._id || ''
+  );
 
   // Replace the mock currentUser with the real authenticated user
   const currentUser = {
@@ -116,7 +125,39 @@ export const Canvas = () => {
     isOnline: true,
   };
 
-  const onlineUsers = [currentUser];
+  // Ensure current user always appears in the collaborators list
+  const mergedUsers = useMemo(() => {
+    const hasCurrent = onlineUsers?.some(u => u.id === currentUser.id);
+    const list = hasCurrent ? onlineUsers : [...(onlineUsers || []), currentUser];
+    // Deduplicate by id just in case
+    const dedupedMap = new Map(list.map(u => [u.id, { ...u, isOnline: true }]));
+    return Array.from(dedupedMap.values());
+  }, [onlineUsers, currentUser.id]);
+
+  // Update presence when user data changes
+  useEffect(() => {
+    if (currentBoard && user) {
+      updatePresence({
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: 'owner',
+        isOnline: true
+      });
+    }
+  }, [currentBoard, user, updatePresence]);
+
+  // Track cursor movement for collaboration
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (currentBoard && user) {
+        broadcastCursorMove(e.clientX, e.clientY);
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    return () => document.removeEventListener('mousemove', handleMouseMove);
+  }, [currentBoard, user, broadcastCursorMove]);
 
   // Add logout button to toolbar or user menu
   const handleLogout = () => {
@@ -174,6 +215,7 @@ export const Canvas = () => {
     onSearch: () => setSearchPanelOpen(true),
     onComment: () => setCommentPanelOpen(true),
     onSave: handleSave,
+    onDeleteSelected: () => handleDeleteSelected(),
   });
 
   // Load boards and current board data
@@ -186,7 +228,12 @@ export const Canvas = () => {
           setBoards(boardsData);
           setCurrentBoard(boardsData[0]);
         } else {
-          await createDefaultBoard();
+          // Only create default board if user has never created any boards
+          const hasCreatedBoards = localStorage.getItem('worldsmith-has-created-boards');
+          if (!hasCreatedBoards) {
+            await createDefaultBoard();
+            localStorage.setItem('worldsmith-has-created-boards', 'true');
+          }
         }
       } catch (error) {
         console.error('Failed to load boards from server:', error);
@@ -197,7 +244,12 @@ export const Canvas = () => {
           setBoards(parsed);
           setCurrentBoard(parsed[0]);
         } else {
-          await createDefaultBoard();
+          // Only create default board if user has never created any boards
+          const hasCreatedBoards = localStorage.getItem('worldsmith-has-created-boards');
+          if (!hasCreatedBoards) {
+            await createDefaultBoard();
+            localStorage.setItem('worldsmith-has-created-boards', 'true');
+          }
         }
       } finally {
         setIsLoading(false);
@@ -481,6 +533,47 @@ export const Canvas = () => {
     }
   };
 
+  const deleteBoard = async (boardId: string) => {
+    if (!boardId) return;
+
+    try {
+      // Delete from server
+      await api.delete(`/boards/${boardId}`);
+
+      // Update local state
+      const updatedBoards = boards.filter(board => board._id !== boardId);
+      setBoards(updatedBoards);
+
+      // If we deleted the current board, switch to another one
+      if (currentBoard?._id === boardId) {
+        if (updatedBoards.length > 0) {
+          setCurrentBoard(updatedBoards[0]);
+        } else {
+          setCurrentBoard(null);
+          setCards([]);
+          setConnections([]);
+          setComments([]);
+        }
+      }
+
+      // Update localStorage
+      localStorage.setItem("worldsmith-boards", JSON.stringify(updatedBoards));
+      localStorage.removeItem(`worldsmith-board-${boardId}`);
+
+      toast({
+        title: "Board deleted",
+        description: "The board has been permanently deleted.",
+      });
+    } catch (error) {
+      console.error('Failed to delete board:', error);
+      toast({
+        title: "Delete failed",
+        description: "Could not delete the board. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const clearCanvas = () => {
     setCards([]);
     setConnections([]);
@@ -501,8 +594,8 @@ export const Canvas = () => {
     });
   };
 
-  const exportCanvas = () => {
-    const data = {
+  const exportCanvasData = () => {
+    return {
       board: currentBoard,
       cards,
       connections,
@@ -510,18 +603,6 @@ export const Canvas = () => {
       exportedAt: new Date().toISOString(),
       version: "1.0"
     };
-    const dataStr = JSON.stringify(data, null, 2);
-    const dataBlob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `worldsmith-${currentBoard?.name || 'canvas'}-${Date.now()}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    toast({
-      title: "Canvas exported",
-      description: "Your canvas has been downloaded as JSON.",
-    });
   };
 
   const importCanvas = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -572,35 +653,31 @@ export const Canvas = () => {
     if (!currentBoard) return;
 
     try {
-      const newPermission: Permission = {
-        userId: `user-${Date.now()}`, // In real app, this would be the actual user ID
-        role,
-        grantedBy: currentUser._id,
-        grantedAt: new Date().toISOString(),
-      };
-
-      const updatedBoard = {
-        ...currentBoard,
-        permissions: [...currentBoard.permissions, newPermission],
-        updatedAt: new Date().toISOString(),
-      };
-
-      setCurrentBoard(updatedBoard);
-      setBoards(boards.map(b => b._id === currentBoard._id ? updatedBoard : b));
-
-      // Update in server
-      await api.put(`/boards/${currentBoard._id}`, { permissions: updatedBoard.permissions });
-
-      toast({
-        title: "User invited",
-        description: `${email} has been added as ${role}`,
+      // Call the new invitation endpoint
+      const response = await api.post(`/boards/${currentBoard._id}/invite`, {
+        email,
+        role
       });
+
+      if (response.emailError) {
+        toast({
+          title: "User added to board",
+          description: `${email} has been added as ${role}, but email could not be sent: ${response.emailError}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Invitation sent",
+          description: `${email} has been invited as ${role}. They will receive an email invitation.`,
+        });
+      }
 
     } catch (error) {
       console.error("Failed to invite user:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast({
         title: "Invitation failed",
-        description: "Could not invite user. Please try again.",
+        description: `Could not send invitation: ${errorMessage}`,
         variant: "destructive",
       });
     }
@@ -615,12 +692,19 @@ export const Canvas = () => {
 
   const deleteConnection = async (connectionId: string) => {
     setConnections(connections => connections.filter(conn => conn._id !== connectionId));
+    setSelectedConnection(null);
 
     // Delete from server in background
     try {
       await api.delete(`/connections/${connectionId}`);
     } catch (error) {
       console.error('Failed to delete connection from server:', error);
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedConnection) {
+      deleteConnection(selectedConnection);
     }
   };
 
@@ -676,7 +760,7 @@ export const Canvas = () => {
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
         onClear={clearCanvas}
-        onExport={exportCanvas}
+        onExport={() => setExportDialogOpen(true)}
         onImport={importCanvas}
         onSave={handleSave}
       />
@@ -688,6 +772,7 @@ export const Canvas = () => {
             currentBoard={currentBoard}
             onSelectBoard={setCurrentBoard}
             onCreateBoard={createBoard}
+            onDeleteBoard={deleteBoard}
           />
           <div className="flex items-center gap-4">
             {isLoading && (
@@ -696,10 +781,15 @@ export const Canvas = () => {
               </div>
             )}
             <CollaborationUsers
-              users={onlineUsers}
+              users={mergedUsers}
               currentBoardId={currentBoard?._id}
               currentUser={currentUser}
               onInviteUser={handleInviteUser}
+              onNavigateToProfile={(userId) => {
+                // Navigate to profile page
+                window.location.href = '/profile';
+              }}
+              isConnected={isConnected}
             />
             <Toolbar
               onAddCard={addCard}
@@ -724,7 +814,7 @@ export const Canvas = () => {
           </div>
         </div>
 
-        <div className="flex-1 relative overflow-auto canvas-area">
+        <div className="flex-1 relative overflow-auto canvas-area" id="canvas-export-area">
           <div className="absolute inset-0 min-w-[200%] min-h-[200%] bg-grid bg-24px">
             <svg className="absolute inset-0 w-full h-full pointer-events-none connection-layer">
               <defs>
@@ -747,6 +837,8 @@ export const Canvas = () => {
                     cards={cards}
                     onDelete={deleteConnection}
                     onUpdate={updateConnection}
+                    onSelect={() => setSelectedConnection(connection._id)}
+                    isSelected={selectedConnection === connection._id}
                   />
                 ))}
               </g>
@@ -815,6 +907,15 @@ export const Canvas = () => {
           }}
         />
       )}
+
+      {/* Export Dialog */}
+      <ExportDialog
+        isOpen={exportDialogOpen}
+        onClose={() => setExportDialogOpen(false)}
+        canvasElement={document.getElementById('canvas-export-area')}
+        boardName={currentBoard?.name || 'canvas'}
+        data={exportCanvasData()}
+      />
     </div>
   );
 };

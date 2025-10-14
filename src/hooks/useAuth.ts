@@ -31,18 +31,65 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     checkAuth();
-  }, []);
+
+    // Listen for storage changes to sync auth state across tabs
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'auth_token') {
+        if (e.newValue === null) {
+          // Token was removed in another tab
+          setUser(null);
+        } else if (e.newValue && !user) {
+          // Token was added in another tab, recheck auth
+          checkAuth();
+        }
+      }
+    };
+
+    // Listen for visibility changes to recheck auth when user returns to tab
+    const handleVisibilityChange = () => {
+      if (!document.hidden && localStorage.getItem('auth_token') && !user) {
+        // User returned to tab and we have a token but no user, recheck auth
+        checkAuth();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user]);
 
   const checkAuth = async () => {
     try {
       const token = localStorage.getItem('auth_token');
       if (token) {
-        const userData = await api.get('/auth/me');
-        setUser(userData);
+        // Validate token format first
+        if (token.split('.').length !== 3) {
+          console.warn('Invalid token format, removing from storage');
+          localStorage.removeItem('auth_token');
+          return;
+        }
+
+        try {
+          const userData = await api.get('/auth/me');
+          setUser(userData);
+        } catch (apiError) {
+          console.error('Auth API call failed:', apiError);
+          // Only remove token if it's a 401/403 error
+          if (apiError instanceof Error && (apiError.message.includes('401') || apiError.message.includes('403'))) {
+            localStorage.removeItem('auth_token');
+          }
+        }
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('auth_token');
+      // Don't remove token on network errors, only on auth errors
+      if (error instanceof Error && (error.message.includes('401') || error.message.includes('403'))) {
+        localStorage.removeItem('auth_token');
+      }
     } finally {
       setIsLoading(false);
     }

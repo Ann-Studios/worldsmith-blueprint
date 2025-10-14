@@ -10,11 +10,21 @@ interface KeyboardShortcuts {
   onSearch: () => void;
   onComment: () => void;
   onSave: () => void;
+  onDeleteSelected?: () => void;
 }
 
 export const useKeyboardShortcuts = (shortcuts: KeyboardShortcuts) => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs, textareas, or contenteditable elements
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.contentEditable === 'true' ||
+        target.closest('[contenteditable="true"]')) {
+        return;
+      }
+
       if (event.ctrlKey || event.metaKey) {
         switch (event.key) {
           case 'n':
@@ -53,6 +63,12 @@ export const useKeyboardShortcuts = (shortcuts: KeyboardShortcuts) => {
             event.preventDefault();
             shortcuts.onSave();
             break;
+        }
+      } else if (event.key === 'Delete' || event.key === 'Backspace') {
+        // Delete selected items (cards, connections, etc.)
+        if (shortcuts.onDeleteSelected) {
+          event.preventDefault();
+          shortcuts.onDeleteSelected();
         }
       }
     };

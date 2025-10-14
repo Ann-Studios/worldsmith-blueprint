@@ -6,6 +6,9 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { Resend } from 'resend';
+import { WebSocketServer } from 'ws';
+import { createServer } from 'http';
 
 // ES module equivalents for __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -14,7 +17,8 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT;
+const server = createServer(app);
+const PORT = process.env.PORT || 3001;
 
 // CORS configuration
 const allowedOrigins = [
@@ -73,6 +77,40 @@ if (!process.env.JWT_SECRET) {
     console.error('❌ JWT_SECRET environment variable is required');
     process.exit(1);
 }
+
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Helper to send invitation email with fallback
+const sendInvitationEmail = async (email, boardName, role, invitationLink) => {
+    if (!process.env.RESEND_API_KEY) {
+        console.warn('RESEND_API_KEY not set; skipping email send');
+        return { success: false, reason: 'RESEND_API_KEY not configured' };
+    }
+    try {
+        await resend.emails.send({
+            from: 'Worldsmith <onboarding@resend.dev>',
+            to: [email],
+            subject: `You've been invited to collaborate on "${boardName}"`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #333;">You've been invited to collaborate!</h2>
+                    <p>You've been invited to collaborate on the board "<strong>${boardName}</strong>" as a <strong>${role}</strong>.</p>
+                    <p>Click the button below to accept the invitation and start collaborating:</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${invitationLink}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Accept Invitation</a>
+                    </div>
+                    <p style="color: #666; font-size: 14px;">This invitation will expire in 7 days.</p>
+                    <p style="color: #666; font-size: 14px;">If you didn't expect this invitation, you can safely ignore this email.</p>
+                </div>
+            `
+        });
+        return { success: true };
+    } catch (err) {
+        console.error('Resend send failed:', err);
+        return { success: false, reason: err.message };
+    }
+};
 
 // Updated MongoDB connection options for modern Mongoose
 const mongooseOptions = {
@@ -1119,6 +1157,94 @@ app.post('/boards/:id/import', authenticateToken, async (req, res) => {
     }
 });
 
+// Board invitation endpoint
+app.post('/boards/:id/invite', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { email, role } = req.body;
+
+        if (!email || !role) {
+            return res.status(400).json({ error: 'Email and role are required' });
+        }
+
+        // Check if user has permission to invite to this board
+        const board = await Board.findOne({
+            _id: id,
+            $or: [
+                { 'permissions.userId': req.user.userId, 'permissions.role': { $in: ['owner', 'editor'] } },
+                { createdBy: req.user.userId }
+            ]
+        });
+
+        if (!board) {
+            return res.status(403).json({ error: 'No permission to invite to this board' });
+        }
+
+        // Check if user already exists
+        let invitedUser = await User.findOne({ email });
+        if (!invitedUser) {
+            // Create a new user account for the invitation
+            invitedUser = new User({
+                _id: `user-${Date.now()}`,
+                email,
+                name: email.split('@')[0], // Use email prefix as default name
+                password: '', // Will be set when they register
+                role: 'user'
+            });
+            await invitedUser.save();
+        }
+
+        // Check if user is already a collaborator
+        const existingPermission = board.permissions.find(p => p.userId === invitedUser._id);
+        if (existingPermission) {
+            return res.status(400).json({ error: 'User is already a collaborator on this board' });
+        }
+
+        // Add permission to board
+        board.permissions.push({
+            userId: invitedUser._id,
+            role,
+            grantedBy: req.user.userId,
+            grantedAt: new Date().toISOString()
+        });
+
+        await board.save();
+
+        // Send invitation email
+        const invitationToken = jwt.sign(
+            {
+                email,
+                boardId: id,
+                role,
+                invitedBy: req.user.userId
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        const invitationLink = `${process.env.CLIENT_URL || 'http://localhost:3000'}/invite/${invitationToken}`;
+
+        const emailResult = await sendInvitationEmail(email, board.name, role, invitationLink);
+
+        if (emailResult.success) {
+            console.log(`✅ Invitation sent to ${email} for board: ${id}`);
+            res.json({ success: true, message: 'Invitation sent successfully' });
+        } else {
+            console.error('Failed to send invitation email:', emailResult.reason);
+            // Still add the permission even if email fails
+            res.json({
+                success: true,
+                message: 'User added to board, but email could not be sent',
+                emailError: emailResult.reason
+            });
+        }
+
+    } catch (error) {
+        console.error('Failed to send board invitation:', error);
+        res.status(500).json({ error: 'Failed to send invitation' });
+    }
+});
+
 // ========== CARD ROUTES ==========
 
 app.post('/cards', authenticateToken, async (req, res) => {
@@ -1543,9 +1669,45 @@ app.use('/*', (req, res) => {
     res.status(404).json({ error: 'API endpoint not found' });
 });
 
+// WebSocket server setup
+const wss = new WebSocketServer({ server });
+const connections = new Map();
+
+wss.on('connection', (ws, req) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const userId = url.searchParams.get('userId');
+    const boardId = url.searchParams.get('boardId');
+
+    if (userId && boardId) {
+        const connectionKey = `${userId}-${boardId}`;
+        connections.set(connectionKey, ws);
+        console.log(`🔌 WebSocket connected: ${userId} on board ${boardId}`);
+
+        ws.on('message', (data) => {
+            try {
+                const message = JSON.parse(data.toString());
+                // Broadcast to other users on the same board
+                connections.forEach((otherWs, key) => {
+                    if (key.includes(boardId) && key !== connectionKey) {
+                        otherWs.send(JSON.stringify(message));
+                    }
+                });
+            } catch (error) {
+                console.error('WebSocket message error:', error);
+            }
+        });
+
+        ws.on('close', () => {
+            connections.delete(connectionKey);
+            console.log(`🔌 WebSocket disconnected: ${userId} from board ${boardId}`);
+        });
+    }
+});
+
 // Start server
-const server = app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🔌 WebSocket server running on ws://localhost:${PORT}`);
     console.log(`📊 MongoDB: ${MONGODB_URI.includes('@') ? 'Connected to MongoDB Atlas' : MONGODB_URI}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔐 Authentication: Enabled`);
