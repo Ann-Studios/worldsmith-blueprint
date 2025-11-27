@@ -168,7 +168,10 @@ export const Canvas = () => {
 
   // Handle save function
   const handleSave = useCallback(async () => {
-    if (!currentBoard) return;
+    if (!currentBoard) {
+      console.warn('⚠️ No current board selected for save');
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -220,11 +223,16 @@ export const Canvas = () => {
 
   // Load boards and current board data
   useEffect(() => {
+    if (!currentUser._id) {
+      console.warn('⚠️ User ID not available, skipping board load');
+      return;
+    }
+
     const loadBoards = async () => {
       setIsLoading(true);
       try {
         const boardsData = await api.get(`/boards?userId=${currentUser._id}`);
-        if (boardsData.length > 0) {
+        if (boardsData && boardsData.length > 0) {
           setBoards(boardsData);
           setCurrentBoard(boardsData[0]);
         } else {
@@ -293,7 +301,10 @@ export const Canvas = () => {
 
   useEffect(() => {
     const loadBoardData = async (boardId: string) => {
-      if (!boardId) return;
+      if (!boardId) {
+        console.warn('⚠️ No board ID provided for loading data');
+        return;
+      }
 
       setIsLoading(true);
       try {
@@ -312,21 +323,29 @@ export const Canvas = () => {
         // Fallback to localStorage
         const savedData = localStorage.getItem(`worldsmith-board-${boardId}`);
         if (savedData) {
-          const { cards: savedCards, connections: savedConnections, comments: savedComments } = JSON.parse(savedData);
-          setCards(savedCards || []);
-          setConnections(savedConnections || []);
-          setComments(savedComments || []);
+          try {
+            const { cards: savedCards, connections: savedConnections, comments: savedComments } = JSON.parse(savedData);
+            setCards(savedCards || []);
+            setConnections(savedConnections || []);
+            setComments(savedComments || []);
+          } catch (parseError) {
+            console.error('Failed to parse saved board data:', parseError);
+            setCards([]);
+            setConnections([]);
+            setComments([]);
+          }
         }
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (currentBoard) {
+    if (currentBoard?._id) {
       loadBoardData(currentBoard._id);
     }
-  }, [currentBoard]);
+  }, [currentBoard?._id]);
 
+  // Fix: Use undefined instead of null for spacebar exclusion
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -335,17 +354,23 @@ export const Canvas = () => {
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: (event, { currentNode }) => {
-        // Exclude spacebar from keyboard sensor
-        if (event.code === 'Space') {
-          return null;
+        // Exclude spacebar from keyboard sensor completely
+        if (event.code === 'Space' || event.key === ' ') {
+          return undefined;
         }
         return sortableKeyboardCoordinates(event, { currentNode });
       },
     })
   );
 
+  // Fix: Add null check for currentBoard
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, delta } = event;
+
+    if (!currentBoard) {
+      console.warn('⚠️ Cannot drag: no current board selected');
+      return;
+    }
 
     console.log('🔄 Drag end:', { activeId: active.id, delta });
 
@@ -361,10 +386,26 @@ export const Canvas = () => {
           : card
       )
     );
+
+    // Save updated card position to server in background
+    const updatedCard = cards.find(c => c._id === active.id);
+    if (updatedCard) {
+      try {
+        api.put(`/cards/${active.id}`, {
+          x: updatedCard.x + delta.x,
+          y: updatedCard.y + delta.y
+        });
+      } catch (error) {
+        console.error('Failed to save card position to server:', error);
+      }
+    }
   };
 
   const addCard = async (type: CardType) => {
-    if (!currentBoard) return;
+    if (!currentBoard) {
+      console.warn('⚠️ Cannot add card: no current board selected');
+      return;
+    }
 
     const cardId = `card-${Date.now()}`;
     console.log('➕ Creating new card:', { cardId, type });
@@ -854,7 +895,7 @@ export const Canvas = () => {
               {cards.map((card) => (
                 <div
                   key={card._id}
-                  data-card-id={card._id} // Add data attribute for easier debugging
+                  data-card-id={card._id}
                   onClick={() => handleCardClick(card._id)}
                   className={selectedCardForConnection === card._id ? "ring-4 ring-ring rounded-lg" : ""}
                 >
@@ -914,7 +955,6 @@ export const Canvas = () => {
         />
       )}
 
-      {/* Export Dialog */}
       <ExportDialog
         isOpen={exportDialogOpen}
         onClose={() => setExportDialogOpen(false)}
