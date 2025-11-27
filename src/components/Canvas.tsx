@@ -334,7 +334,13 @@ export const Canvas = () => {
       },
     }),
     useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
+      coordinateGetter: (event, { currentNode }) => {
+        // Exclude spacebar from keyboard sensor
+        if (event.code === 'Space') {
+          return null;
+        }
+        return sortableKeyboardCoordinates(event, { currentNode });
+      },
     })
   );
 
